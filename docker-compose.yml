@@ -1,0 +1,51 @@
+# Full stack: MySQL + Spring Boot API + four Next.js zones. Open http://localhost:3000
+services:
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_DATABASE: ocs
+      MYSQL_USER: ocs
+      MYSQL_PASSWORD: ocs
+      MYSQL_ROOT_PASSWORD: root
+    ports: ["3306:3306"]
+    volumes: [mysql-data:/var/lib/mysql]
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uocs", "-pocs"]
+      interval: 5s
+      retries: 20
+
+  backend:
+    build: ./backend
+    environment:
+      DB_URL: jdbc:mysql://mysql:3306/ocs?useSSL=false&allowPublicKeyRetrieval=true&connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true
+      OCS_JWT_SECRET: ${OCS_JWT_SECRET:-change-me-in-production-at-least-32-bytes}
+      # Behind the shell proxy every request shares one source IP, so the in-process limiter is off here;
+      # in AWS, API Gateway enforces the limits (infra/terraform).
+      OCS_RATE_LIMIT_ENABLED: "false"
+    ports: ["8080:8080"]
+    depends_on:
+      mysql: { condition: service_healthy }
+
+  catalog:
+    build: { context: ./frontend, args: { APP: catalog } }
+    environment: { BACKEND_URL: http://backend:8080, SITE_URL: http://localhost:3000, PORT: 3001 }
+    depends_on: [backend]
+
+  learn:
+    build: { context: ./frontend, args: { APP: learn } }
+    environment: { BACKEND_URL: http://backend:8080, SITE_URL: http://localhost:3000, PORT: 3002 }
+    depends_on: [backend]
+
+  studio:
+    build: { context: ./frontend, args: { APP: studio } }
+    environment: { BACKEND_URL: http://backend:8080, SITE_URL: http://localhost:3000, PORT: 3003 }
+    depends_on: [backend]
+
+  shell:
+    build: { context: ./frontend, args: { APP: shell } }
+    environment: { BACKEND_URL: http://backend:8080, SITE_URL: http://localhost:3000, PORT: 3000 }
+    ports: ["3000:3000"]
+    depends_on: [catalog, learn, studio]
+
+volumes:
+  mysql-data:

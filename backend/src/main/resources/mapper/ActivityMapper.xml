@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.bohuai.ocs.mapper.ActivityMapper">
+
+    <insert id="insert">
+        INSERT INTO user_activity (user_id, course_id, chapter_id, action)
+        VALUES (#{userId}, #{courseId}, #{chapterId}, #{action})
+    </insert>
+
+    <select id="recentForUser" resultType="com.bohuai.ocs.model.Activity">
+        SELECT a.id, a.user_id, a.course_id, a.chapter_id, a.action, a.created_at,
+               c.title AS course_title, ch.title AS chapter_title
+        FROM user_activity a
+        LEFT JOIN courses c ON c.id = a.course_id
+        LEFT JOIN chapters ch ON ch.id = a.chapter_id
+        WHERE a.user_id = #{userId}
+        ORDER BY a.created_at DESC, a.id DESC
+        LIMIT #{limit}
+    </select>
+</mapper>

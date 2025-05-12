@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.bohuai.ocs.mapper.ChapterMapper">
+
+    <!-- Share the catalog cache: chapter writes must invalidate course chapter counts / durations. -->
+    <cache-ref namespace="com.bohuai.ocs.mapper.CourseMapper"/>
+
+    <select id="findOutlineByCourse" resultType="com.bohuai.ocs.model.Chapter">
+        SELECT id, course_id, title, position, duration_min, is_preview AS preview, created_at, updated_at
+        FROM chapters
+        WHERE course_id = #{courseId}
+        ORDER BY position, id
+    </select>
+
+    <select id="findById" resultType="com.bohuai.ocs.model.Chapter">
+        SELECT id, course_id, title, content, position, duration_min, is_preview AS preview, created_at, updated_at
+        FROM chapters
+        WHERE id = #{id}
+    </select>
+
+    <select id="nextPosition" resultType="int" useCache="false">
+        SELECT COALESCE(MAX(position), 0) + 1 FROM chapters WHERE course_id = #{courseId}
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO chapters (course_id, title, content, position, duration_min, is_preview)
+        VALUES (#{courseId}, #{title}, #{content}, #{position}, #{durationMin}, #{preview})
+    </insert>
+
+    <update id="update">
+        UPDATE chapters
+        SET title = #{title}, content = #{content}, duration_min = #{durationMin}, is_preview = #{preview}
+        WHERE id = #{id}
+    </update>
+
+    <update id="updatePosition">
+        UPDATE chapters SET position = #{position} WHERE id = #{id} AND course_id = #{courseId}
+    </update>
+
+    <delete id="delete">
+        DELETE FROM chapters WHERE id = #{id}
+    </delete>
+</mapper>

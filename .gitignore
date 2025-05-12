@@ -1,0 +1,21 @@
+# Java
+backend/target/
+*.class
+.idea/
+*.iml
+# Node / Next.js
+node_modules/
+.next/
+*.tsbuildinfo
+next-env.d.ts
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+# Env & OS
+.env
+.env*.local
+.DS_Store
+__pycache__/

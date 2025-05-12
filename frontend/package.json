@@ -1,0 +1,16 @@
+{
+  "name": "ocs-frontend",
+  "private": true,
+  "description": "Micro-frontend web app for the Online Course Management System (Next.js multi-zones)",
+  "workspaces": ["packages/*", "apps/*"],
+  "scripts": {
+    "dev": "concurrently -n shell,catalog,learn,studio -c blue,green,magenta,yellow \"npm:dev -w @ocs/shell\" \"npm:dev -w @ocs/catalog\" \"npm:dev -w @ocs/learn\" \"npm:dev -w @ocs/studio\"",
+    "build": "npm run build --workspaces --if-present",
+    "start": "concurrently -n shell,catalog,learn,studio \"npm:start -w @ocs/shell\" \"npm:start -w @ocs/catalog\" \"npm:start -w @ocs/learn\" \"npm:start -w @ocs/studio\"",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.0"
+  }
+}

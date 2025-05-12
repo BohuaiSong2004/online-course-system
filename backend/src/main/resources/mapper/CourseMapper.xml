@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.bohuai.ocs.mapper.CourseMapper">
+
+    <!--
+      Second-level cache for the read-heavy catalog. Any write in this namespace (or in ChapterMapper,
+      which joins it via cache-ref) flushes it, so readers never see stale chapter counts after an edit.
+      readOnly=false returns serialized copies, so callers may safely mutate results.
+    -->
+    <cache eviction="LRU" flushInterval="300000" size="1024" readOnly="false"/>
+
+    <sql id="listCols">
+        c.id, c.slug, c.title, c.summary, c.category, c.level, c.instructor_id,
+        u.display_name AS instructor_name, c.status, c.published_at, c.created_at, c.updated_at,
+        (SELECT COUNT(*) FROM chapters ch WHERE ch.course_id = c.id) AS chapter_count,
+        (SELECT COALESCE(SUM(ch.duration_min), 0) FROM chapters ch WHERE ch.course_id = c.id) AS total_minutes
+    </sql>
+
+    <sql id="publishedFilter">
+        <where>
+            c.status = 'PUBLISHED'
+            <if test="q != null and q != ''">
+                AND (c.title LIKE CONCAT('%', #{q}, '%') OR c.summary LIKE CONCAT('%', #{q}, '%'))
+            </if>
+            <if test="category != null and category != ''">AND c.category = #{category}</if>
+            <if test="level != null and level != ''">AND c.level = #{level}</if>
+        </where>
+    </sql>
+
+    <select id="searchPublished" resultType="com.bohuai.ocs.model.Course">
+        SELECT <include refid="listCols"/>
+        FROM courses c JOIN users u ON u.id = c.instructor_id
+        <include refid="publishedFilter"/>
+        ORDER BY c.published_at DESC, c.id DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countPublished" resultType="long">
+        SELECT COUNT(*) FROM courses c
+        <include refid="publishedFilter"/>
+    </select>
+
+    <select id="listPublishedCategories" resultType="string">
+        SELECT DISTINCT category FROM courses WHERE status = 'PUBLISHED' ORDER BY category
+    </select>
+
+    <select id="listPublishedForSitemap" resultType="com.bohuai.ocs.model.Course">
+        SELECT id, slug, updated_at FROM courses WHERE status = 'PUBLISHED' ORDER BY id
+    </select>
+
+    <select id="findById" resultType="com.bohuai.ocs.model.Course">
+        SELECT <include refid="listCols"/>, c.description
+        FROM courses c JOIN users u ON u.id = c.instructor_id
+        WHERE c.id = #{id}
+    </select>
+
+    <select id="findBySlug" resultType="com.bohuai.ocs.model.Course">
+        SELECT <include refid="listCols"/>, c.description
+        FROM courses c JOIN users u ON u.id = c.instructor_id
+        WHERE c.slug = #{slug}
+    </select>
+
+    <select id="findByInstructor" resultType="com.bohuai.ocs.model.Course">
+        SELECT <include refid="listCols"/>
+        FROM courses c JOIN users u ON u.id = c.instructor_id
+        WHERE c.instructor_id = #{instructorId}
+        ORDER BY c.updated_at DESC
+    </select>
+
+    <select id="findAllForAdmin" resultType="com.bohuai.ocs.model.Course">
+        SELECT <include refid="listCols"/>
+        FROM courses c JOIN users u ON u.id = c.instructor_id
+        ORDER BY c.updated_at DESC
+    </select>
+
+    <select id="slugExists" resultType="boolean" useCache="false">
+        SELECT EXISTS(SELECT 1 FROM courses WHERE slug = #{slug})
+    </select>
+
+    <insert id="insert" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO courses (slug, title, summary, description, category, level, instructor_id, status)
+        VALUES (#{slug}, #{title}, #{summary}, #{description}, #{category}, #{level}, #{instructorId}, 'DRAFT')
+    </insert>
+
+    <update id="update">
+        UPDATE courses
+        SET title = #{title}, summary = #{summary}, description = #{description},
+            category = #{category}, level = #{level}
+        WHERE id = #{id}
+    </update>
+
+    <update id="updateStatus">
+        UPDATE courses
+        SET status = #{status},
+            published_at = CASE WHEN #{status} = 'PUBLISHED' THEN COALESCE(published_at, NOW(3)) ELSE published_at END
+        WHERE id = #{id}
+    </update>
+
+    <delete id="delete">
+        DELETE FROM courses WHERE id = #{id}
+    </delete>
+</mapper>

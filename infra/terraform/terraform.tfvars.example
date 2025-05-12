@@ -1,0 +1,2 @@
+region           = "us-west-2"
+backend_base_url = "https://ocs-backend-alb-123456.us-west-2.elb.amazonaws.com"
