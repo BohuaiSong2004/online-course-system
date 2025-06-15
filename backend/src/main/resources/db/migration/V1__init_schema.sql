@@ -1,7 +1,7 @@
 -- Online Course Management System schema (MySQL 8, InnoDB, utf8mb4).
--- Idempotent: safe to run on every startup.
+-- Baseline schema. Applied once by Flyway.
 
-CREATE TABLE IF NOT EXISTS users (
+CREATE TABLE users (
     id            BIGINT       NOT NULL AUTO_INCREMENT,
     email         VARCHAR(255) NOT NULL,
     password_hash VARCHAR(100) NOT NULL,
@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS users (
     UNIQUE KEY uk_users_email (email)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS courses (
+CREATE TABLE courses (
     id            BIGINT       NOT NULL AUTO_INCREMENT,
     slug          VARCHAR(160) NOT NULL,
     title         VARCHAR(150) NOT NULL,
@@ -33,7 +33,7 @@ CREATE TABLE IF NOT EXISTS courses (
     CONSTRAINT fk_courses_instructor FOREIGN KEY (instructor_id) REFERENCES users (id)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS chapters (
+CREATE TABLE chapters (
     id           BIGINT       NOT NULL AUTO_INCREMENT,
     course_id    BIGINT       NOT NULL,
     title        VARCHAR(150) NOT NULL,
@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS chapters (
     CONSTRAINT fk_chapters_course FOREIGN KEY (course_id) REFERENCES courses (id) ON DELETE CASCADE
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS enrollments (
+CREATE TABLE enrollments (
     id           BIGINT      NOT NULL AUTO_INCREMENT,
     user_id      BIGINT      NOT NULL,
     course_id    BIGINT      NOT NULL,
@@ -63,7 +63,7 @@ CREATE TABLE IF NOT EXISTS enrollments (
     CONSTRAINT fk_enrollments_course FOREIGN KEY (course_id) REFERENCES courses (id) ON DELETE CASCADE
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS chapter_progress (
+CREATE TABLE chapter_progress (
     user_id      BIGINT      NOT NULL,
     chapter_id   BIGINT      NOT NULL,
     course_id    BIGINT      NOT NULL,
@@ -76,7 +76,7 @@ CREATE TABLE IF NOT EXISTS chapter_progress (
 
 -- Append-only activity log. Hot query: latest N events for one user.
 -- The composite B-tree (user_id, created_at) turns it into an index range scan with no filesort.
-CREATE TABLE IF NOT EXISTS user_activity (
+CREATE TABLE user_activity (
     id         BIGINT      NOT NULL AUTO_INCREMENT,
     user_id    BIGINT      NOT NULL,
     course_id  BIGINT      NULL,

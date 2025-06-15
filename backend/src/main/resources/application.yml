@@ -11,11 +11,10 @@ spring:
     password: ${DB_PASSWORD:ocs}
     hikari:
       maximum-pool-size: ${DB_POOL_SIZE:10}
-  sql:
-    init:
-      mode: ${DB_INIT_MODE:always}          # set to "never" once the schema is managed by migrations
-      schema-locations: classpath:db/schema.sql
-      data-locations: ${DB_SEED_LOCATIONS:classpath:db/data.sql}
+  flyway:
+    # Schema is versioned with Flyway (db/migration). Demo data (db/demo) is applied once on an empty
+    # database; real environments set OCS_FLYWAY_LOCATIONS=classpath:db/migration to leave it out.
+    locations: ${OCS_FLYWAY_LOCATIONS:classpath:db/migration,classpath:db/demo}
 
 mybatis:
   mapper-locations: classpath:mapper/*.xml
