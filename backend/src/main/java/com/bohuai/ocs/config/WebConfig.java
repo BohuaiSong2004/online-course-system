@@ -10,6 +10,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import com.bohuai.ocs.security.AuthFilter;
 import com.bohuai.ocs.security.JwtService;
+import com.bohuai.ocs.security.OriginPolicy;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Configuration
@@ -36,9 +37,9 @@ public class WebConfig implements WebMvcConfigurer {
     }
 
     @Bean
-    public FilterRegistrationBean<AuthFilter> authFilter(JwtService jwtService) {
+    public FilterRegistrationBean<AuthFilter> authFilter(JwtService jwtService, OriginPolicy originPolicy) {
         FilterRegistrationBean<AuthFilter> reg =
-                new FilterRegistrationBean<>(new AuthFilter(jwtService, props.jwt().cookieName(), props.cors().allowedOrigins()));
+                new FilterRegistrationBean<>(new AuthFilter(jwtService, props.jwt().cookieName(), originPolicy));
         reg.addUrlPatterns("/api/*");
         reg.setOrder(2);
         return reg;

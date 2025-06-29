@@ -12,4 +12,8 @@ public interface UserMapper {
     User findByEmail(@Param("email") String email);
 
     int insert(User user);
+
+    int updatePassword(@Param("id") long id, @Param("passwordHash") String passwordHash);
+
+    int updateDisplayName(@Param("id") long id, @Param("displayName") String displayName);
 }

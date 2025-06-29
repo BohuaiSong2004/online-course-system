@@ -1,9 +1,9 @@
 package com.bohuai.ocs.security;
 
 import com.bohuai.ocs.config.OcsProperties;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 
+import java.time.Instant;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -11,15 +11,14 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class JwtServiceTest {
 
-    private static JwtService service(String secret, long ttl) {
-        OcsProperties props = new OcsProperties(
-                new OcsProperties.Jwt(secret, ttl, "ocs_token", false),
+    static OcsProperties props(String secret, long ttl) {
+        return new OcsProperties(
+                new OcsProperties.Jwt(secret, ttl, 3600, 10, "ocs_token", "ocs_refresh", false),
                 new OcsProperties.RateLimit(false, 1, 1),
-                new OcsProperties.Cors(List.of()));
-        return new JwtService(props, new ObjectMapper());
+                new OcsProperties.Cors(List.of("http://localhost:3000")));
     }
 
-    private final JwtService jwt = service("test-secret-test-secret-test-secret-123", 3600);
+    private final JwtService jwt = new JwtService(props("test-secret-test-secret-test-secret-123", 900));
 
     @Test
     void roundTripsClaims() {
@@ -37,14 +36,14 @@ class JwtServiceTest {
 
     @Test
     void rejectsTokenSignedWithAnotherKey() {
-        JwtService other = service("another-secret-another-secret-another-1", 3600);
+        JwtService other = new JwtService(props("another-secret-another-secret-another-1", 900));
         assertThat(jwt.verify(other.issue(new CurrentUser(1, "x", Role.ADMIN)))).isEmpty();
     }
 
     @Test
     void rejectsExpiredToken() {
-        JwtService shortLived = service("test-secret-test-secret-test-secret-123", 0);
-        assertThat(shortLived.verify(shortLived.issue(new CurrentUser(1, "x", Role.LEARNER)))).isEmpty();
+        String old = jwt.issue(new CurrentUser(1, "x", Role.LEARNER), Instant.now().minusSeconds(3600));
+        assertThat(jwt.verify(old)).isEmpty();
     }
 
     @Test
@@ -56,6 +55,6 @@ class JwtServiceTest {
 
     @Test
     void refusesShortSecret() {
-        assertThatThrownBy(() -> service("short", 60)).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> new JwtService(props("short", 60))).isInstanceOf(IllegalStateException.class);
     }
 }

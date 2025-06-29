@@ -1,24 +1,19 @@
 package com.bohuai.ocs.security;
 
 import com.bohuai.ocs.config.OcsProperties;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockFilterChain;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 
-import java.util.List;
-
 import static org.assertj.core.api.Assertions.assertThat;
 
 class AuthFilterTest {
 
-    private final JwtService jwt = new JwtService(new OcsProperties(
-            new OcsProperties.Jwt("test-secret-test-secret-test-secret-123", 3600, "ocs_token", false),
-            new OcsProperties.RateLimit(false, 1, 1),
-            new OcsProperties.Cors(List.of("http://localhost:3000"))), new ObjectMapper());
-    private final AuthFilter filter = new AuthFilter(jwt, "ocs_token", List.of("http://localhost:3000"));
+    private final OcsProperties props = JwtServiceTest.props("test-secret-test-secret-test-secret-123", 900);
+    private final JwtService jwt = new JwtService(props);
+    private final AuthFilter filter = new AuthFilter(jwt, "ocs_token", new OriginPolicy(props));
     private final String token = jwt.issue(new CurrentUser(7, "Leo", Role.LEARNER));
 
     private Object run(String method, String origin, boolean bearer) throws Exception {

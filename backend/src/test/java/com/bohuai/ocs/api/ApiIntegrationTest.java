@@ -27,7 +27,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * End-to-end API tests against a real MySQL (CI starts one as a service container; locally run
  * `docker compose up -d mysql` and export DB_URL). Uses the demo seed data.
  */
-@SpringBootTest(properties = "ocs.rate-limit.enabled=false")
+@SpringBootTest(properties = {"ocs.rate-limit.enabled=false", "ocs.jwt.reuse-grace-seconds=0"})
 @AutoConfigureMockMvc
 @EnabledIfEnvironmentVariable(named = "DB_URL", matches = ".+")
 class ApiIntegrationTest {
@@ -182,6 +182,62 @@ class ApiIntegrationTest {
 
         send(delete("/api/studio/courses/" + id), token, null).andExpect(status().isNoContent());
         send(get("/api/courses/" + slug), null, null).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void refreshTokensRotateAndReuseRevokesAllSessions() throws Exception {
+        String email = "rt-" + UUID.randomUUID() + "@example.com";
+        JsonNode reg = body(send(post("/api/auth/register"), null,
+                java.util.Map.of("email", email, "password", "password123", "displayName", "Rotating"))
+                .andExpect(status().isCreated())
+                .andExpect(header().stringValues("Set-Cookie", org.hamcrest.Matchers.hasItem(
+                        org.hamcrest.Matchers.startsWith("ocs_refresh=")))));
+        String r1 = reg.get("refreshToken").asText();
+
+        JsonNode rotated = body(send(post("/api/auth/refresh"), null, java.util.Map.of("refreshToken", r1))
+                .andExpect(status().isOk()));
+        String r2 = rotated.get("refreshToken").asText();
+        assertThat(r2).isNotEqualTo(r1);
+        send(get("/api/auth/me"), rotated.get("token").asText(), null).andExpect(status().isOk());
+
+        // Replaying the old token = theft: rejected, and the newer token is revoked too.
+        send(post("/api/auth/refresh"), null, java.util.Map.of("refreshToken", r1)).andExpect(status().isUnauthorized());
+        send(post("/api/auth/refresh"), null, java.util.Map.of("refreshToken", r2)).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void logoutRevokesRefreshToken() throws Exception {
+        JsonNode s1 = body(send(post("/api/auth/login"), null,
+                java.util.Map.of("email", "learner@demo.dev", "password", "password123")).andExpect(status().isOk()));
+        String rt = s1.get("refreshToken").asText();
+        send(post("/api/auth/logout"), null, java.util.Map.of("refreshToken", rt)).andExpect(status().isNoContent());
+        send(post("/api/auth/refresh"), null, java.util.Map.of("refreshToken", rt)).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void passwordChangeSignsOutOtherSessions() throws Exception {
+        String email = "pw-" + UUID.randomUUID() + "@example.com";
+        JsonNode reg = body(send(post("/api/auth/register"), null,
+                java.util.Map.of("email", email, "password", "password123", "displayName", "Pw"))
+                .andExpect(status().isCreated()));
+        String token = reg.get("token").asText();
+        String oldRefresh = reg.get("refreshToken").asText();
+
+        send(put("/api/me/password"), token, java.util.Map.of("currentPassword", "wrong-one", "newPassword", "newpassword1"))
+                .andExpect(status().isBadRequest());
+        JsonNode fresh = body(send(put("/api/me/password"), token,
+                java.util.Map.of("currentPassword", "password123", "newPassword", "newpassword1"))
+                .andExpect(status().isOk()));
+        assertThat(fresh.get("refreshToken").asText()).isNotEqualTo(oldRefresh);
+
+        send(post("/api/auth/refresh"), null, java.util.Map.of("refreshToken", oldRefresh)).andExpect(status().isUnauthorized());
+        send(post("/api/auth/login"), null, java.util.Map.of("email", email, "password", "password123"))
+                .andExpect(status().isUnauthorized());
+        send(post("/api/auth/login"), null, java.util.Map.of("email", email, "password", "newpassword1"))
+                .andExpect(status().isOk());
+
+        send(put("/api/me/profile"), fresh.get("token").asText(), java.util.Map.of("displayName", "Renamed"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.displayName").value("Renamed"));
     }
 
     @Test

@@ -10,7 +10,15 @@ import java.util.List;
 @ConfigurationProperties(prefix = "ocs")
 public record OcsProperties(Jwt jwt, RateLimit rateLimit, Cors cors) {
 
-    public record Jwt(String secret, long ttlSeconds, String cookieName, boolean cookieSecure) {
+    /**
+     * @param accessTtlSeconds  lifetime of the stateless access token (short, so role changes and
+     *                          revocations take effect quickly)
+     * @param refreshTtlSeconds lifetime of a rotating refresh token stored server-side
+     * @param reuseGraceSeconds window after rotation in which the old refresh token is still accepted
+     *                          (concurrent requests), before reuse is treated as theft
+     */
+    public record Jwt(String secret, long accessTtlSeconds, long refreshTtlSeconds, long reuseGraceSeconds,
+                      String cookieName, String refreshCookieName, boolean cookieSecure) {
     }
 
     /**

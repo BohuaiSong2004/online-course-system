@@ -1,44 +1,38 @@
 package com.bohuai.ocs.security;
 
 import com.bohuai.ocs.config.OcsProperties;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.JwtException;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.security.Keys;
 import org.springframework.stereotype.Service;
 
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
+import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.time.Instant;
-import java.util.Base64;
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.util.Date;
 import java.util.Optional;
 
 /**
- * Minimal stateless HS256 JWT implementation (issue + verify). No server-side session state,
- * so any API instance behind the gateway can validate a token.
+ * Issues and verifies short-lived HS256 access tokens (jjwt). Stateless: any API instance can
+ * verify a token without a database round-trip. Long-lived sessions are handled by
+ * {@link com.bohuai.ocs.service.TokenService} with rotating, revocable refresh tokens.
  */
 @Service
 public class JwtService {
 
-    private static final Base64.Encoder B64 = Base64.getUrlEncoder().withoutPadding();
-    private static final Base64.Decoder B64D = Base64.getUrlDecoder();
-    private static final String HEADER = B64.encodeToString(
-            "{\"alg\":\"HS256\",\"typ\":\"JWT\"}".getBytes(StandardCharsets.UTF_8));
+    static final String ISSUER = "ocs";
 
-    private final byte[] secret;
+    private final SecretKey key;
     private final long ttlSeconds;
-    private final ObjectMapper mapper;
 
-    public JwtService(OcsProperties props, ObjectMapper mapper) {
+    public JwtService(OcsProperties props) {
         String s = props.jwt().secret();
         if (s == null || s.getBytes(StandardCharsets.UTF_8).length < 32) {
             throw new IllegalStateException("ocs.jwt.secret must be at least 32 bytes");
         }
-        this.secret = s.getBytes(StandardCharsets.UTF_8);
-        this.ttlSeconds = props.jwt().ttlSeconds();
-        this.mapper = mapper;
+        this.key = Keys.hmacShaKeyFor(s.getBytes(StandardCharsets.UTF_8));
+        this.ttlSeconds = props.jwt().accessTtlSeconds();
     }
 
     public long ttlSeconds() {
@@ -46,54 +40,36 @@ public class JwtService {
     }
 
     public String issue(CurrentUser user) {
-        long now = Instant.now().getEpochSecond();
-        Map<String, Object> claims = new LinkedHashMap<>();
-        claims.put("sub", String.valueOf(user.id()));
-        claims.put("name", user.displayName());
-        claims.put("role", user.role().name());
-        claims.put("iat", now);
-        claims.put("exp", now + ttlSeconds);
-        try {
-            String payload = B64.encodeToString(mapper.writeValueAsBytes(claims));
-            String signingInput = HEADER + "." + payload;
-            return signingInput + "." + B64.encodeToString(sign(signingInput));
-        } catch (Exception e) {
-            throw new IllegalStateException("Could not issue token", e);
-        }
+        return issue(user, Instant.now());
+    }
+
+    String issue(CurrentUser user, Instant now) {
+        return Jwts.builder()
+                .issuer(ISSUER)
+                .subject(String.valueOf(user.id()))
+                .claim("name", user.displayName())
+                .claim("role", user.role().name())
+                .issuedAt(Date.from(now))
+                .expiration(Date.from(now.plusSeconds(ttlSeconds)))
+                .signWith(key, Jwts.SIG.HS256)
+                .compact();
     }
 
     public Optional<CurrentUser> verify(String token) {
-        if (token == null) {
-            return Optional.empty();
-        }
-        String[] parts = token.split("\\.");
-        if (parts.length != 3 || !HEADER.equals(parts[0])) {
+        if (token == null || token.isBlank()) {
             return Optional.empty();
         }
         try {
-            byte[] expected = sign(parts[0] + "." + parts[1]);
-            byte[] actual = B64D.decode(parts[2]);
-            if (!MessageDigest.isEqual(expected, actual)) {
-                return Optional.empty();
-            }
-            Map<String, Object> claims = mapper.readValue(B64D.decode(parts[1]), new TypeReference<Map<String, Object>>() {
-            });
-            long exp = ((Number) claims.get("exp")).longValue();
-            if (Instant.now().getEpochSecond() >= exp) {
-                return Optional.empty();
-            }
-            return Optional.of(new CurrentUser(
-                    Long.parseLong((String) claims.get("sub")),
-                    (String) claims.get("name"),
-                    Role.valueOf((String) claims.get("role"))));
-        } catch (Exception e) {
+            Claims c = Jwts.parser()
+                    .verifyWith(key)
+                    .requireIssuer(ISSUER)
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload();
+            return Optional.of(new CurrentUser(Long.parseLong(c.getSubject()), c.get("name", String.class),
+                    Role.valueOf(c.get("role", String.class))));
+        } catch (JwtException | IllegalArgumentException e) {
             return Optional.empty();
         }
-    }
-
-    private byte[] sign(String input) throws Exception {
-        Mac mac = Mac.getInstance("HmacSHA256");
-        mac.init(new SecretKeySpec(secret, "HmacSHA256"));
-        return mac.doFinal(input.getBytes(StandardCharsets.UTF_8));
     }
 }

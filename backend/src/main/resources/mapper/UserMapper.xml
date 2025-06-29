@@ -16,4 +16,12 @@
         INSERT INTO users (email, password_hash, display_name, role)
         VALUES (#{email}, #{passwordHash}, #{displayName}, #{role})
     </insert>
+
+    <update id="updatePassword">
+        UPDATE users SET password_hash = #{passwordHash} WHERE id = #{id}
+    </update>
+
+    <update id="updateDisplayName">
+        UPDATE users SET display_name = #{displayName} WHERE id = #{id}
+    </update>
 </mapper>

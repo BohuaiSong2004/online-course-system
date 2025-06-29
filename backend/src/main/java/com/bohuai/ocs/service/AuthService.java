@@ -1,18 +1,18 @@
 package com.bohuai.ocs.service;
 
 import com.bohuai.ocs.common.ApiException;
-import com.bohuai.ocs.dto.AuthResponse;
+import com.bohuai.ocs.dto.ChangePasswordRequest;
 import com.bohuai.ocs.dto.LoginRequest;
 import com.bohuai.ocs.dto.RegisterRequest;
 import com.bohuai.ocs.dto.UserView;
 import com.bohuai.ocs.mapper.UserMapper;
 import com.bohuai.ocs.model.User;
 import com.bohuai.ocs.security.CurrentUser;
-import com.bohuai.ocs.security.JwtService;
 import com.bohuai.ocs.security.Role;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
@@ -21,19 +21,20 @@ import java.util.Locale;
 public class AuthService {
 
     // Used to keep login timing similar whether or not the email exists.
-    private static final String DUMMY_HASH = "$2a$10$MWaGS4Xj.qIhbHmo7LydDuhcDjVSordFEE4SNhg1dexA.sRStTEhC";
+    private static final String DUMMY_HASH = "$2a$10$d5ajOXklvhtUKYqEtj0JC.pZSGsQdB5uQFFo/QpcVstDgMWxqIqBu";
 
     private final UserMapper users;
     private final PasswordEncoder encoder;
-    private final JwtService jwt;
+    private final TokenService tokens;
 
-    public AuthService(UserMapper users, PasswordEncoder encoder, JwtService jwt) {
+    public AuthService(UserMapper users, PasswordEncoder encoder, TokenService tokens) {
         this.users = users;
         this.encoder = encoder;
-        this.jwt = jwt;
+        this.tokens = tokens;
     }
 
-    public AuthResponse register(RegisterRequest req) {
+    @Transactional
+    public TokenService.TokenPair register(RegisterRequest req) {
         if (tooLongForBcrypt(req.password())) {
             throw ApiException.badRequest("Password must be at most 72 bytes");
         }
@@ -51,10 +52,10 @@ public class AuthService {
         } catch (DuplicateKeyException e) {
             throw ApiException.conflict("An account with that email already exists");
         }
-        return issue(users.findById(u.getId()));
+        return tokens.issue(users.findById(u.getId()));
     }
 
-    public AuthResponse login(LoginRequest req) {
+    public TokenService.TokenPair login(LoginRequest req) {
         if (tooLongForBcrypt(req.password())) {
             throw ApiException.unauthorized("Invalid email or password"); // could never have been registered
         }
@@ -64,20 +65,47 @@ public class AuthService {
         if (u == null || !ok) {
             throw ApiException.unauthorized("Invalid email or password");
         }
-        return issue(u);
+        return tokens.issue(u);
+    }
+
+    public TokenService.TokenPair refresh(String rawRefreshToken) {
+        return tokens.rotate(rawRefreshToken);
+    }
+
+    public void logout(String rawRefreshToken) {
+        tokens.revoke(rawRefreshToken);
     }
 
     public UserView me(CurrentUser current) {
-        User u = users.findById(current.id());
+        return UserView.of(requireUser(current.id()));
+    }
+
+    /** Changing the password signs out every other session and returns a fresh one for this device. */
+    @Transactional
+    public TokenService.TokenPair changePassword(CurrentUser current, ChangePasswordRequest req) {
+        User u = requireUser(current.id());
+        if (!encoder.matches(req.currentPassword(), u.getPasswordHash())) {
+            throw ApiException.badRequest("Current password is incorrect");
+        }
+        if (tooLongForBcrypt(req.newPassword())) {
+            throw ApiException.badRequest("Password must be at most 72 bytes");
+        }
+        users.updatePassword(u.getId(), encoder.encode(req.newPassword()));
+        tokens.revokeAll(u.getId());
+        return tokens.issue(u);
+    }
+
+    public UserView updateProfile(CurrentUser current, String displayName) {
+        users.updateDisplayName(current.id(), displayName.trim());
+        return UserView.of(requireUser(current.id()));
+    }
+
+    private User requireUser(long id) {
+        User u = users.findById(id);
         if (u == null) {
             throw ApiException.unauthorized("Account no longer exists");
         }
-        return UserView.of(u);
-    }
-
-    private AuthResponse issue(User u) {
-        CurrentUser cu = new CurrentUser(u.getId(), u.getDisplayName(), Role.valueOf(u.getRole()));
-        return new AuthResponse(jwt.issue(cu), jwt.ttlSeconds(), UserView.of(u));
+        return u;
     }
 
     /**
