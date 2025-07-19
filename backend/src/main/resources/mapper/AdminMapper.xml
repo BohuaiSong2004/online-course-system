@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.bohuai.ocs.mapper.AdminMapper">
+
+    <!-- Reporting scope: members of teams managed by #{managerId}; no restriction when managerId is null. -->
+    <sql id="inScope">
+        <if test="managerId != null">
+            AND ${col} IN (SELECT su.id FROM users su JOIN teams st ON st.id = su.team_id
+                           WHERE st.manager_id = #{managerId})
+        </if>
+    </sql>
+
+    <!-- ===================== users ===================== -->
+    <sql id="userCols">
+        u.id, u.email, u.display_name, u.role, u.team_id, t.name AS team_name, u.active, u.created_at
+    </sql>
+    <sql id="userFilter">
+        <where>
+            <if test="q != null and q != ''">
+                (u.email LIKE CONCAT('%', #{q}, '%') OR u.display_name LIKE CONCAT('%', #{q}, '%'))
+            </if>
+            <if test="role != null and role != ''">AND u.role = #{role}</if>
+            <if test="teamId != null">AND u.team_id = #{teamId}</if>
+        </where>
+    </sql>
+
+    <select id="searchUsers" resultType="com.bohuai.ocs.model.AdminUserView">
+        SELECT <include refid="userCols"/> FROM users u LEFT JOIN teams t ON t.id = u.team_id
+        <include refid="userFilter"/>
+        ORDER BY u.display_name, u.id
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countUsers" resultType="long">
+        SELECT COUNT(*) FROM users u <include refid="userFilter"/>
+    </select>
+
+    <select id="findUser" resultType="com.bohuai.ocs.model.AdminUserView">
+        SELECT <include refid="userCols"/> FROM users u LEFT JOIN teams t ON t.id = u.team_id WHERE u.id = #{id}
+    </select>
+
+    <update id="updateUser">
+        UPDATE users SET role = #{role}, team_id = #{teamId}, active = #{active} WHERE id = #{id}
+    </update>
+
+    <select id="countActiveAdmins" resultType="long">
+        SELECT COUNT(*) FROM users WHERE role = 'ADMIN' AND active = TRUE
+    </select>
+
+    <!-- ===================== teams ===================== -->
+    <sql id="teamCols">
+        t.id, t.name, t.manager_id, m.display_name AS manager_name, t.created_at,
+        (SELECT COUNT(*) FROM users tu WHERE tu.team_id = t.id AND tu.active = TRUE) AS member_count
+    </sql>
+
+    <select id="listTeams" resultType="com.bohuai.ocs.model.Team">
+        SELECT <include refid="teamCols"/> FROM teams t LEFT JOIN users m ON m.id = t.manager_id
+        <where><if test="managerId != null">t.manager_id = #{managerId}</if></where>
+        ORDER BY t.name
+    </select>
+
+    <select id="findTeam" resultType="com.bohuai.ocs.model.Team">
+        SELECT <include refid="teamCols"/> FROM teams t LEFT JOIN users m ON m.id = t.manager_id WHERE t.id = #{id}
+    </select>
+
+    <insert id="insertTeam" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO teams (name, manager_id) VALUES (#{name}, #{managerId})
+    </insert>
+
+    <update id="updateTeam">
+        UPDATE teams SET name = #{name}, manager_id = #{managerId} WHERE id = #{id}
+    </update>
+
+    <delete id="deleteTeam">
+        DELETE FROM teams WHERE id = #{id}
+    </delete>
+
+    <select id="teamMemberIds" resultType="long">
+        SELECT u.id FROM users u WHERE u.team_id = #{teamId} AND u.active = TRUE
+        <include refid="inScope"><property name="col" value="u.id"/></include>
+    </select>
+
+    <select id="usersInScope" resultType="long">
+        SELECT u.id FROM users u
+        WHERE u.active = TRUE AND u.id IN
+        <foreach collection="userIds" item="uid" open="(" separator="," close=")">#{uid}</foreach>
+        <include refid="inScope"><property name="col" value="u.id"/></include>
+    </select>
+
+    <!-- ===================== assignments ===================== -->
+    <!-- Returns 1 when inserted, 2 when an existing assignment's due date changed, 0 when unchanged. -->
+    <insert id="upsertAssignment">
+        INSERT INTO assignments (user_id, course_id, assigned_by, due_date)
+        VALUES (#{userId}, #{courseId}, #{assignedBy}, #{dueDate})
+        ON DUPLICATE KEY UPDATE due_date = VALUES(due_date)
+    </insert>
+
+    <insert id="enrollIfMissing">
+        INSERT IGNORE INTO enrollments (user_id, course_id, status) VALUES (#{userId}, #{courseId}, 'ACTIVE')
+    </insert>
+
+    <sql id="assignmentSelect">
+        SELECT a.id, a.user_id, u.display_name AS user_name, u.email AS user_email, t.name AS team_name,
+               a.course_id, c.title AS course_title, c.slug AS course_slug, a.due_date, a.created_at AS assigned_at,
+               ab.display_name AS assigned_by_name, e.status AS enrollment_status, e.completed_at,
+               (SELECT COUNT(*) FROM chapters ch WHERE ch.course_id = a.course_id) AS total_chapters,
+               (SELECT COUNT(*) FROM chapter_progress p
+                 WHERE p.user_id = a.user_id AND p.course_id = a.course_id) AS completed_chapters
+        FROM assignments a
+        JOIN users u ON u.id = a.user_id
+        JOIN courses c ON c.id = a.course_id
+        LEFT JOIN teams t ON t.id = u.team_id
+        LEFT JOIN users ab ON ab.id = a.assigned_by
+        LEFT JOIN enrollments e ON e.user_id = a.user_id AND e.course_id = a.course_id
+    </sql>
+
+    <select id="findAssignment" resultType="com.bohuai.ocs.model.AssignmentRow">
+        <include refid="assignmentSelect"/>
+        WHERE a.id = #{id}
+        <include refid="inScope"><property name="col" value="a.user_id"/></include>
+    </select>
+
+    <delete id="deleteAssignment">
+        DELETE FROM assignments WHERE id = #{id}
+    </delete>
+
+    <select id="listAssignments" resultType="com.bohuai.ocs.model.AssignmentRow">
+        <include refid="assignmentSelect"/>
+        WHERE 1 = 1
+        <include refid="inScope"><property name="col" value="a.user_id"/></include>
+        <if test="courseId != null">AND a.course_id = #{courseId}</if>
+        <if test="teamId != null">AND u.team_id = #{teamId}</if>
+        <if test="userId != null">AND a.user_id = #{userId}</if>
+        ORDER BY a.due_date IS NULL, a.due_date, u.display_name, a.id
+        LIMIT #{limit}
+    </select>
+
+    <!-- ===================== reports ===================== -->
+    <select id="courseStats" resultType="com.bohuai.ocs.model.CourseStat">
+        SELECT * FROM (
+            SELECT c.id AS course_id, c.title, c.slug,
+                   (SELECT COUNT(*) FROM assignments a WHERE a.course_id = c.id
+                       <include refid="inScope"><property name="col" value="a.user_id"/></include>) AS assigned,
+                   (SELECT COUNT(*) FROM enrollments e WHERE e.course_id = c.id
+                       <include refid="inScope"><property name="col" value="e.user_id"/></include>) AS enrolled,
+                   (SELECT COUNT(*) FROM enrollments e WHERE e.course_id = c.id AND e.status = 'COMPLETED'
+                       <include refid="inScope"><property name="col" value="e.user_id"/></include>) AS completed,
+                   (SELECT COUNT(*) FROM assignments a
+                      LEFT JOIN enrollments e ON e.user_id = a.user_id AND e.course_id = a.course_id
+                     WHERE a.course_id = c.id AND a.due_date &lt; CURDATE()
+                       AND (e.status IS NULL OR e.status &lt;&gt; 'COMPLETED')
+                       <include refid="inScope"><property name="col" value="a.user_id"/></include>) AS overdue
+            FROM courses c
+            WHERE c.status = 'PUBLISHED'
+        ) s
+        <if test="managerId != null">WHERE s.assigned > 0 OR s.enrolled > 0</if>
+        ORDER BY s.assigned DESC, s.enrolled DESC, s.title
+    </select>
+
+    <select id="teamStats" resultType="com.bohuai.ocs.model.TeamStat">
+        SELECT t.id AS team_id, t.name, m.display_name AS manager_name,
+               (SELECT COUNT(*) FROM users u WHERE u.team_id = t.id AND u.active = TRUE) AS members,
+               (SELECT COUNT(*) FROM assignments a JOIN users u ON u.id = a.user_id
+                 WHERE u.team_id = t.id) AS assigned,
+               (SELECT COUNT(*) FROM assignments a JOIN users u ON u.id = a.user_id
+                  JOIN enrollments e ON e.user_id = a.user_id AND e.course_id = a.course_id
+                 WHERE u.team_id = t.id AND e.status = 'COMPLETED') AS completed,
+               (SELECT COUNT(*) FROM assignments a JOIN users u ON u.id = a.user_id
+                  LEFT JOIN enrollments e ON e.user_id = a.user_id AND e.course_id = a.course_id
+                 WHERE u.team_id = t.id AND a.due_date &lt; CURDATE()
+                   AND (e.status IS NULL OR e.status &lt;&gt; 'COMPLETED')) AS overdue
+        FROM teams t LEFT JOIN users m ON m.id = t.manager_id
+        <where><if test="managerId != null">t.manager_id = #{managerId}</if></where>
+        ORDER BY t.name
+    </select>
+
+    <select id="countLearnersInScope" resultType="long">
+        SELECT COUNT(*) FROM users u WHERE u.active = TRUE
+        <include refid="inScope"><property name="col" value="u.id"/></include>
+    </select>
+</mapper>

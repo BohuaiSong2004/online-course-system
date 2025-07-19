@@ -65,6 +65,9 @@ public class AuthService {
         if (u == null || !ok) {
             throw ApiException.unauthorized("Invalid email or password");
         }
+        if (!Boolean.TRUE.equals(u.getActive())) {
+            throw ApiException.forbidden("This account has been deactivated");
+        }
         return tokens.issue(u);
     }
 

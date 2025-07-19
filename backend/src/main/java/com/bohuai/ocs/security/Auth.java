@@ -24,6 +24,23 @@ public class Auth {
         return current().orElseThrow(() -> ApiException.unauthorized("Sign in required"));
     }
 
+    public CurrentUser requireAdmin() {
+        CurrentUser u = require();
+        if (!u.isAdmin()) {
+            throw ApiException.forbidden("Admin role required");
+        }
+        return u;
+    }
+
+    /** Managers (own teams) and admins (everyone). */
+    public CurrentUser requireManager() {
+        CurrentUser u = require();
+        if (!u.role().canManage()) {
+            throw ApiException.forbidden("Manager role required");
+        }
+        return u;
+    }
+
     public CurrentUser requireAuthor() {
         CurrentUser u = require();
         if (!u.role().canAuthor()) {

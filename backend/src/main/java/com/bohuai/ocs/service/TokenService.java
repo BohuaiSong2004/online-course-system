@@ -81,7 +81,7 @@ public class TokenService {
             if (justRotated) {
                 // Concurrent refresh from the same browser (e.g. page + prefetch): give it its own session.
                 User user = users.findById(current.getUserId());
-                if (user != null) {
+                if (user != null && Boolean.TRUE.equals(user.getActive())) {
                     return issueInternal(user).pair();
                 }
             }
@@ -95,8 +95,8 @@ public class TokenService {
             throw ApiException.unauthorized("Session expired, please sign in again");
         }
         User user = users.findById(current.getUserId());
-        if (user == null) {
-            throw ApiException.unauthorized("Account no longer exists");
+        if (user == null || !Boolean.TRUE.equals(user.getActive())) {
+            throw ApiException.unauthorized("Account no longer exists or was deactivated");
         }
         Issued next = issueInternal(user);
         tokens.markReplaced(current.getId(), next.refreshId());

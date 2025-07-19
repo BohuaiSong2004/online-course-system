@@ -14,6 +14,8 @@ public class User implements Serializable {
     private String passwordHash;
     private String displayName;
     private String role;
+    private Long teamId;
+    private Boolean active;
     private Instant createdAt;
 
     public Long getId() {
@@ -55,6 +57,22 @@ public class User implements Serializable {
 
     public void setRole(String role) {
         this.role = role;
+    }
+
+    public Long getTeamId() {
+        return teamId;
+    }
+
+    public void setTeamId(Long teamId) {
+        this.teamId = teamId;
+    }
+
+    public Boolean getActive() {
+        return active;
+    }
+
+    public void setActive(Boolean active) {
+        this.active = active;
     }
 
     public Instant getCreatedAt() {

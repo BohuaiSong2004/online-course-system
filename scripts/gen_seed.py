@@ -15,6 +15,15 @@ USERS = [
     (2, "instructor@demo.dev", "Ivy Instructor", "INSTRUCTOR"),
     (3, "learner@demo.dev", "Leo Learner", "LEARNER"),
     (4, "mentor@demo.dev", "Marco Mentor", "INSTRUCTOR"),
+    (5, "manager@demo.dev", "Mia Manager", "MANAGER"),
+]
+
+# Corporate demo data: teams, extra employees, assignments with due dates and partial progress.
+TEAMS = [(1, "Engineering", 5), (2, "Sales", 5), (3, "People Ops", None)]
+EMPLOYEES = [  # (id, name, team_id)
+    (6, "Ava Chen", 1), (7, "Noah Patel", 1), (8, "Sofia Garcia", 1), (9, "Liam Johnson", 1),
+    (10, "Emma Kim", 2), (11, "Lucas Silva", 2), (12, "Olivia Brown", 2),
+    (13, "Ethan Nguyen", 3), (14, "Mila Rossi", 3), (15, "James Wilson", 1),
 ]
 
 COURSES = [
@@ -145,12 +154,50 @@ def main():
                 f"VALUES ({chapter_id}, {c['id']}, {q(title)}, {q(content)}, {pos}, {mins}, {'TRUE' if preview else 'FALSE'});")
             chapter_id += 1
         lines.append("")
-    # Leo is enrolled in the first course and has finished chapter 1.
-    lines += [
-        "INSERT INTO enrollments (id, user_id, course_id, status) VALUES (1, 3, 1, 'ACTIVE');",
-        "INSERT INTO chapter_progress (user_id, chapter_id, course_id) VALUES (3, 1, 1);",
-        "",
-    ]
+    # Teams and employees.
+    for tid, name, mgr in TEAMS:
+        lines.append(f"INSERT INTO teams (id, name, manager_id) VALUES ({tid}, {q(name)}, {mgr if mgr else 'NULL'});")
+    lines.append("UPDATE users SET team_id = 1 WHERE id = 3;")
+    for uid, name, team in EMPLOYEES:
+        email = name.lower().replace(" ", ".") + "@demo.dev"
+        lines.append(f"INSERT INTO users (id, email, password_hash, display_name, role, team_id) VALUES "
+                     f"({uid}, {q(email)}, {q(pw)}, {q(name)}, 'LEARNER', {team});")
+    lines.append("")
+
+    # Chapter ids per course, in order.
+    chapters_by_course, cid = {}, 1
+    for c in COURSES + [DRAFT]:
+        chapters_by_course[c["id"]] = list(range(cid, cid + len(c["chapters"])))
+        cid += len(c["chapters"])
+
+    import random
+    rnd = random.Random(42)
+    learners = [3] + [e[0] for e in EMPLOYEES]
+    team_of = {3: 1, **{e[0]: e[2] for e in EMPLOYEES}}
+    # (course, who, due offset in days, assigned by)
+    plans = [(3, learners, 14, 1),                                   # security training for everyone
+             (1, [u for u in learners if team_of[u] == 1], -3, 5),   # Engineering: Java course, already due
+             (5, [u for u in learners if team_of[u] == 1], 30, 5),   # Engineering: code review
+             (6, [u for u in learners if team_of[u] == 2], 7, 5)]    # Sales: communication
+    enrolled = set()
+    for course, who, due, by in plans:
+        for u in who:
+            lines.append(f"INSERT INTO assignments (user_id, course_id, assigned_by, due_date) VALUES "
+                         f"({u}, {course}, {by}, DATE_ADD(CURDATE(), INTERVAL {due} DAY));")
+            enrolled.add((u, course))
+    enrolled.add((3, 4))  # Leo also enrolled in SQL on his own
+    for u, course in sorted(enrolled):
+        chs = chapters_by_course[course]
+        done = rnd.choice([0, 0, 1, len(chs) // 2, len(chs), len(chs)])
+        if u == 3 and course == 1:
+            done = 1
+        status = "COMPLETED" if done == len(chs) else "ACTIVE"
+        completed_at = "NOW(3)" if status == "COMPLETED" else "NULL"
+        lines.append(f"INSERT INTO enrollments (user_id, course_id, status, completed_at) VALUES "
+                     f"({u}, {course}, '{status}', {completed_at});")
+        for ch in chs[:done]:
+            lines.append(f"INSERT INTO chapter_progress (user_id, chapter_id, course_id) VALUES ({u}, {ch}, {course});")
+    lines.append("")
     OUT.write_text("\n".join(lines))
     print(f"wrote {OUT}")
 

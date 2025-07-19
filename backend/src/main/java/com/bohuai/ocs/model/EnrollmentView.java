@@ -2,6 +2,7 @@ package com.bohuai.ocs.model;
 
 import java.io.Serializable;
 import java.time.Instant;
+import java.time.LocalDate;
 
 /** A learner's enrollment joined with course info and progress counts (dashboard row). */
 public class EnrollmentView implements Serializable {
@@ -21,6 +22,8 @@ public class EnrollmentView implements Serializable {
     private Integer totalChapters;
     private Integer completedChapters;
     private Long nextChapterId;
+    private LocalDate dueDate;
+    private String assignedByName;
 
     public Long getCourseId() {
         return courseId;
@@ -116,6 +119,22 @@ public class EnrollmentView implements Serializable {
 
     public void setCompletedChapters(Integer completedChapters) {
         this.completedChapters = completedChapters;
+    }
+
+    public LocalDate getDueDate() {
+        return dueDate;
+    }
+
+    public void setDueDate(LocalDate dueDate) {
+        this.dueDate = dueDate;
+    }
+
+    public String getAssignedByName() {
+        return assignedByName;
+    }
+
+    public void setAssignedByName(String assignedByName) {
+        this.assignedByName = assignedByName;
     }
 
     public Long getNextChapterId() {
