@@ -12,6 +12,9 @@ public class Chapter implements Serializable {
     private Long courseId;
     private String title;
     private String content;
+    private String videoUrl;
+    private Integer quizPassPercent;
+    private Integer quizQuestionCount;
     private Integer position;
     private Integer durationMin;
     private Boolean preview;
@@ -48,6 +51,30 @@ public class Chapter implements Serializable {
 
     public void setContent(String content) {
         this.content = content;
+    }
+
+    public String getVideoUrl() {
+        return videoUrl;
+    }
+
+    public void setVideoUrl(String videoUrl) {
+        this.videoUrl = videoUrl;
+    }
+
+    public Integer getQuizPassPercent() {
+        return quizPassPercent;
+    }
+
+    public void setQuizPassPercent(Integer quizPassPercent) {
+        this.quizPassPercent = quizPassPercent;
+    }
+
+    public Integer getQuizQuestionCount() {
+        return quizQuestionCount;
+    }
+
+    public void setQuizQuestionCount(Integer quizQuestionCount) {
+        this.quizQuestionCount = quizQuestionCount;
     }
 
     public Integer getPosition() {

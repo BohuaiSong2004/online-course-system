@@ -10,6 +10,8 @@ import com.bohuai.ocs.mapper.ProgressMapper;
 import com.bohuai.ocs.model.Chapter;
 import com.bohuai.ocs.model.Course;
 import com.bohuai.ocs.model.Enrollment;
+import com.bohuai.ocs.model.QuizAttempt;
+import com.bohuai.ocs.model.QuizQuestion;
 import com.bohuai.ocs.security.CurrentUser;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,14 +29,19 @@ public class ChapterService {
     private final ProgressMapper progress;
     private final CourseService courseService;
     private final ActivityService activity;
+    private final CertificateService certificates;
+    private final QuizService quizzes;
 
     public ChapterService(ChapterMapper chapters, EnrollmentMapper enrollments, ProgressMapper progress,
-                          CourseService courseService, ActivityService activity) {
+                          CourseService courseService, ActivityService activity, CertificateService certificates,
+                          @org.springframework.context.annotation.Lazy QuizService quizzes) {
         this.chapters = chapters;
         this.enrollments = enrollments;
         this.progress = progress;
         this.courseService = courseService;
         this.activity = activity;
+        this.certificates = certificates;
+        this.quizzes = quizzes;
     }
 
     // ---------- learner ----------
@@ -75,20 +82,37 @@ public class ChapterService {
             completed = progress.completedChapterIds(uid, course.getId()).contains(chapterId);
             activity.log(uid, course.getId(), chapterId, ActivityService.VIEW_CHAPTER);
         }
-        return new ChapterView(ch, course.getSlug(), course.getTitle(), prev, next, completed, e != null);
+        List<QuizQuestion> quiz = quizzes.forLearner(chapterId);
+        QuizAttempt best = e == null || quiz.isEmpty() ? null : quizzes.bestAttempt(viewer.get().id(), chapterId);
+        return new ChapterView(ch, course.getSlug(), course.getTitle(), prev, next, completed, e != null, quiz, best);
     }
 
     @Transactional
     public ProgressResponse complete(long chapterId, CurrentUser user) {
+        Chapter ch = requireEnrolledChapter(chapterId, user);
+        if (ch.getQuizQuestionCount() != null && ch.getQuizQuestionCount() > 0) {
+            throw ApiException.badRequest("Pass the chapter quiz to complete this chapter");
+        }
+        return markDone(ch, user);
+    }
+
+    /** The chapter, if the caller is enrolled in its course and may access it. */
+    Chapter requireEnrolledChapter(long chapterId, CurrentUser user) {
         Chapter ch = requireChapter(chapterId);
-        long courseId = ch.getCourseId();
-        Course course = courseService.requireById(courseId);
+        Course course = courseService.requireById(ch.getCourseId());
         if (!CourseService.PUBLISHED.equals(course.getStatus()) && !CourseService.canEdit(user, course)) {
             throw ApiException.notFound("Chapter");
         }
-        if (enrollments.find(user.id(), courseId) == null) {
+        if (enrollments.find(user.id(), ch.getCourseId()) == null) {
             throw ApiException.forbidden("Enroll in this course first");
         }
+        return ch;
+    }
+
+    /** Records completion; completing the last chapter completes the course and issues a certificate. */
+    ProgressResponse markDone(Chapter ch, CurrentUser user) {
+        long chapterId = ch.getId();
+        long courseId = ch.getCourseId();
         if (progress.markComplete(user.id(), chapterId, courseId) > 0) {
             activity.log(user.id(), courseId, chapterId, ActivityService.COMPLETE_CHAPTER);
         }
@@ -96,10 +120,14 @@ public class ChapterService {
         Set<Long> done = new HashSet<>(progress.completedChapterIds(user.id(), courseId));
         Long nextId = outline.stream().map(Chapter::getId).filter(id -> !done.contains(id)).findFirst().orElse(null);
         boolean courseDone = !outline.isEmpty() && nextId == null;
-        if (courseDone && enrollments.markCompleted(user.id(), courseId) > 0) {
-            activity.log(user.id(), courseId, null, ActivityService.COMPLETE_COURSE);
+        String certificate = null;
+        if (courseDone) {
+            if (enrollments.markCompleted(user.id(), courseId) > 0) {
+                activity.log(user.id(), courseId, null, ActivityService.COMPLETE_COURSE);
+            }
+            certificate = certificates.issue(user.id(), courseId);
         }
-        return new ProgressResponse(done.size(), outline.size(), courseDone, nextId);
+        return new ProgressResponse(done.size(), outline.size(), courseDone, nextId, certificate);
     }
 
     // ---------- studio ----------
@@ -151,7 +179,7 @@ public class ChapterService {
         return chapters.findOutlineByCourse(courseId);
     }
 
-    private Chapter requireChapter(long id) {
+    Chapter requireChapter(long id) {
         Chapter ch = chapters.findById(id);
         if (ch == null) {
             throw ApiException.notFound("Chapter");
@@ -164,5 +192,6 @@ public class ChapterService {
         ch.setContent(req.content() == null ? "" : req.content());
         ch.setDurationMin(req.durationMin() == null ? 10 : req.durationMin());
         ch.setPreview(Boolean.TRUE.equals(req.preview()));
+        ch.setVideoUrl(req.videoUrl() == null || req.videoUrl().isBlank() ? null : req.videoUrl().trim());
     }
 }

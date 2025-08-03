@@ -33,13 +33,15 @@ public class CourseService {
     private final ChapterMapper chapters;
     private final EnrollmentMapper enrollments;
     private final ProgressMapper progress;
+    private final CertificateService certificates;
 
     public CourseService(CourseMapper courses, ChapterMapper chapters, EnrollmentMapper enrollments,
-                         ProgressMapper progress) {
+                         ProgressMapper progress, CertificateService certificates) {
         this.courses = courses;
         this.chapters = chapters;
         this.enrollments = enrollments;
         this.progress = progress;
+        this.certificates = certificates;
     }
 
     // ---------- public catalog ----------
@@ -48,8 +50,9 @@ public class CourseService {
         int p = Math.max(1, Math.min(page, MAX_PAGE));
         int s = Math.max(1, Math.min(size, MAX_PAGE_SIZE));
         String query = q == null ? null : escapeLike(q.trim());
-        List<Course> items = courses.searchPublished(query, blankToNull(category), blankToNull(level), (p - 1) * s, s);
-        long total = courses.countPublished(query, blankToNull(category), blankToNull(level));
+        String ft = q == null ? null : fullTextQuery(q);
+        List<Course> items = courses.searchPublished(query, ft, blankToNull(category), blankToNull(level), (p - 1) * s, s);
+        long total = courses.countPublished(query, ft, blankToNull(category), blankToNull(level));
         return PageResult.of(items, p, s, total);
     }
 
@@ -74,7 +77,8 @@ public class CourseService {
         ViewerState state = viewer.map(v -> {
             Enrollment e = enrollments.find(v.id(), c.getId());
             List<Long> done = e == null ? List.<Long>of() : progress.completedChapterIds(v.id(), c.getId());
-            return new ViewerState(true, e != null, e == null ? null : e.getStatus(), canEdit, done);
+            String cert = e != null && "COMPLETED".equals(e.getStatus()) ? certificates.codeFor(v.id(), c.getId()) : null;
+            return new ViewerState(true, e != null, e == null ? null : e.getStatus(), canEdit, done, cert);
         }).orElse(ViewerState.anonymous());
         return new CourseDetail(c, outline, enrollments.countByCourse(c.getId()), state);
     }
@@ -88,7 +92,7 @@ public class CourseService {
     public CourseDetail studioDetail(CurrentUser author, long courseId) {
         Course c = requireEditable(author, courseId);
         return new CourseDetail(c, chapters.findOutlineByCourse(courseId), enrollments.countByCourse(courseId),
-                new ViewerState(true, false, null, true, List.of()));
+                new ViewerState(true, false, null, true, List.of(), null));
     }
 
     @Transactional
@@ -175,6 +179,21 @@ public class CourseService {
             s = s.substring(0, 120).replaceAll("-+$", "");
         }
         return s.isEmpty() ? "course" : s;
+    }
+
+    /**
+     * Builds a MySQL boolean-mode query: every word of 3+ letters/digits is required, with prefix
+     * matching ("+spring* +boot*"). Operators in user input are dropped. Returns null when no word is
+     * long enough for the full-text index (innodb_ft_min_token_size = 3), so the caller falls back to LIKE.
+     */
+    static String fullTextQuery(String q) {
+        StringBuilder sb = new StringBuilder();
+        for (String word : q.toLowerCase(Locale.ROOT).split("[^\\p{L}\\p{N}]+")) {
+            if (word.length() >= 3) {
+                sb.append(sb.isEmpty() ? "" : " ").append('+').append(word).append('*');
+            }
+        }
+        return sb.isEmpty() ? null : sb.toString();
     }
 
     private static String blankToNull(String s) {

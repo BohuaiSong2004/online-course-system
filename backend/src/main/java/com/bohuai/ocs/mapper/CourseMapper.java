@@ -14,11 +14,12 @@ import java.util.List;
 @Mapper
 public interface CourseMapper {
 
-    List<Course> searchPublished(@Param("q") String q, @Param("category") String category,
+    List<Course> searchPublished(@Param("q") String q, @Param("ft") String ft, @Param("category") String category,
                                  @Param("level") String level, @Param("offset") int offset,
                                  @Param("limit") int limit);
 
-    long countPublished(@Param("q") String q, @Param("category") String category, @Param("level") String level);
+    long countPublished(@Param("q") String q, @Param("ft") String ft, @Param("category") String category,
+                        @Param("level") String level);
 
     List<String> listPublishedCategories();
 

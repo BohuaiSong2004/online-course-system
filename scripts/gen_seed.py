@@ -118,6 +118,29 @@ COURSES = [
          ]),
 ]
 
+# Chapter quizzes: (course id, chapter position) -> (pass %, [(prompt, explanation, [options], correct index)])
+QUIZZES = {
+    (3, 1): (70, [
+        ("An email from 'IT Support' asks you to confirm your password within 1 hour. What do you do?",
+         "Urgency plus a credential request is the classic phishing pattern. Report it; IT never asks for passwords.",
+         ["Reply with your password", "Click the link and log in", "Report it with the Report Phishing button"], 2),
+        ("Which sender address is most suspicious for a message claiming to be from your company?",
+         "Look-alike domains swap letters or add words to the real domain.",
+         ["it@yourcompany.com", "it@yourcompany-support.net", "noreply@yourcompany.com"], 1),
+        ("You opened an unexpected attachment and your laptop is acting strangely. First step?",
+         "Disconnecting limits spread; then report immediately.",
+         ["Restart and hope", "Disconnect from the network and contact security", "Delete the email"], 1),
+    ]),
+    (4, 3): (50, [
+        ("Which index best serves: WHERE user_id = ? ORDER BY created_at DESC LIMIT 20?",
+         "A composite index with the equality column first lets MySQL read the rows already in order.",
+         ["(created_at)", "(user_id, created_at)", "(created_at, user_id)"], 1),
+        ("In EXPLAIN output, what does 'Using filesort' usually indicate?",
+         "MySQL had to sort rows after reading them instead of using an index order.",
+         ["An extra sort step", "A full-text search", "A missing primary key"], 0),
+    ]),
+}
+
 # One unpublished draft so the studio view has something to edit.
 DRAFT = dict(id=7, slug="kubernetes-basics-draft", title="Kubernetes Basics (draft)",
              category="Engineering", level="INTERMEDIATE", instructor=2,
@@ -149,9 +172,19 @@ def main():
             f"VALUES ({c['id']}, {q(c['slug'])}, {q(c['title'])}, {q(c['summary'])}, {q(c['description'])}, "
             f"{q(c['category'])}, {q(c['level'])}, {c['instructor']}, {q('PUBLISHED' if published else 'DRAFT')}, {pub_at});")
         for pos, (title, mins, preview, content) in enumerate(c["chapters"], start=1):
+            quiz = QUIZZES.get((c["id"], pos))
             lines.append(
-                "INSERT INTO chapters (id, course_id, title, content, position, duration_min, is_preview) "
-                f"VALUES ({chapter_id}, {c['id']}, {q(title)}, {q(content)}, {pos}, {mins}, {'TRUE' if preview else 'FALSE'});")
+                "INSERT INTO chapters (id, course_id, title, content, position, duration_min, is_preview, quiz_pass_percent) "
+                f"VALUES ({chapter_id}, {c['id']}, {q(title)}, {q(content)}, {pos}, {mins}, {'TRUE' if preview else 'FALSE'}, "
+                f"{quiz[0] if quiz else 70});")
+            if quiz:
+                for qpos, (prompt, expl, options, correct) in enumerate(quiz[1], start=1):
+                    lines.append(f"INSERT INTO quiz_questions (chapter_id, position, prompt, explanation) VALUES "
+                                 f"({chapter_id}, {qpos}, {q(prompt)}, {q(expl)});")
+                    lines.append("SET @q = LAST_INSERT_ID();")
+                    for opos, text in enumerate(options, start=1):
+                        lines.append("INSERT INTO quiz_options (question_id, position, text, correct) VALUES "
+                                     f"(@q, {opos}, {q(text)}, {'TRUE' if opos - 1 == correct else 'FALSE'});")
             chapter_id += 1
         lines.append("")
     # Teams and employees.
@@ -195,6 +228,9 @@ def main():
         completed_at = "NOW(3)" if status == "COMPLETED" else "NULL"
         lines.append(f"INSERT INTO enrollments (user_id, course_id, status, completed_at) VALUES "
                      f"({u}, {course}, '{status}', {completed_at});")
+        if status == "COMPLETED":
+            code = "".join(rnd.choice("23456789ABCDEFGHJKMNPQRSTUVWXYZ") for _ in range(12))
+            lines.append(f"INSERT INTO certificates (user_id, course_id, code) VALUES ({u}, {course}, '{code}');")
         for ch in chs[:done]:
             lines.append(f"INSERT INTO chapter_progress (user_id, chapter_id, course_id) VALUES ({u}, {ch}, {course});")
     lines.append("")

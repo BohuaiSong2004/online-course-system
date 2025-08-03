@@ -19,9 +19,15 @@
     <sql id="publishedFilter">
         <where>
             c.status = 'PUBLISHED'
-            <if test="q != null and q != ''">
-                AND (c.title LIKE CONCAT('%', #{q}, '%') OR c.summary LIKE CONCAT('%', #{q}, '%'))
-            </if>
+            <choose>
+                <!-- Full-text (ft_courses_text) for words of 3+ characters; LIKE fallback for short input. -->
+                <when test="ft != null">
+                    AND MATCH(c.title, c.summary, c.description) AGAINST (#{ft} IN BOOLEAN MODE)
+                </when>
+                <when test="q != null and q != ''">
+                    AND (c.title LIKE CONCAT('%', #{q}, '%') OR c.summary LIKE CONCAT('%', #{q}, '%'))
+                </when>
+            </choose>
             <if test="category != null and category != ''">AND c.category = #{category}</if>
             <if test="level != null and level != ''">AND c.level = #{level}</if>
         </where>
@@ -31,7 +37,9 @@
         SELECT <include refid="listCols"/>
         FROM courses c JOIN users u ON u.id = c.instructor_id
         <include refid="publishedFilter"/>
-        ORDER BY c.published_at DESC, c.id DESC
+        ORDER BY
+        <if test="ft != null">MATCH(c.title, c.summary, c.description) AGAINST (#{ft} IN BOOLEAN MODE) DESC,</if>
+        c.published_at DESC, c.id DESC
         LIMIT #{limit} OFFSET #{offset}
     </select>
 

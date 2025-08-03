@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.bohuai.ocs.mapper.CertificateMapper">
+
+    <sql id="cols">
+        cert.id, cert.code, cert.user_id, u.display_name AS learner_name, cert.course_id,
+        c.title AS course_title, c.slug AS course_slug, i.display_name AS instructor_name,
+        (SELECT COALESCE(SUM(ch.duration_min), 0) FROM chapters ch WHERE ch.course_id = c.id) AS total_minutes,
+        cert.issued_at
+    </sql>
+    <sql id="from">
+        FROM certificates cert
+        JOIN users u ON u.id = cert.user_id
+        JOIN courses c ON c.id = cert.course_id
+        JOIN users i ON i.id = c.instructor_id
+    </sql>
+
+    <insert id="issue">
+        INSERT IGNORE INTO certificates (user_id, course_id, code) VALUES (#{userId}, #{courseId}, #{code})
+    </insert>
+
+    <select id="findByCode" resultType="com.bohuai.ocs.model.Certificate">
+        SELECT <include refid="cols"/> <include refid="from"/> WHERE cert.code = #{code}
+    </select>
+
+    <select id="findForUserCourse" resultType="com.bohuai.ocs.model.Certificate">
+        SELECT <include refid="cols"/> <include refid="from"/> WHERE cert.user_id = #{userId} AND cert.course_id = #{courseId}
+    </select>
+
+    <select id="listForUser" resultType="com.bohuai.ocs.model.Certificate">
+        SELECT <include refid="cols"/> <include refid="from"/> WHERE cert.user_id = #{userId} ORDER BY cert.issued_at DESC
+    </select>
+</mapper>

@@ -113,9 +113,21 @@ class ApiIntegrationTest {
 
         JsonNode last = null;
         for (JsonNode ch : chapters) {
-            last = body(send(post("/api/chapters/" + ch.get("id").asLong() + "/complete"), token, null)
-                    .andExpect(status().isOk()));
+            long id = ch.get("id").asLong();
+            if (ch.get("quizQuestionCount").asInt() > 0) {
+                // quiz chapters can't be ticked off; they complete by passing (seed answer key: B, A)
+                send(post("/api/chapters/" + id + "/complete"), token, null).andExpect(status().isBadRequest());
+                JsonNode quiz = body(send(get("/api/chapters/" + id), token, null)).get("quiz");
+                java.util.Map<String, Long> answers = java.util.Map.of(
+                        quiz.get(0).get("id").asText(), quiz.get(0).at("/options/1/id").asLong(),
+                        quiz.get(1).get("id").asText(), quiz.get(1).at("/options/0/id").asLong());
+                last = body(send(post("/api/chapters/" + id + "/quiz/attempts"), token,
+                        java.util.Map.of("answers", answers)).andExpect(status().isOk())).get("progress");
+            } else {
+                last = body(send(post("/api/chapters/" + id + "/complete"), token, null).andExpect(status().isOk()));
+            }
         }
+        assertThat(last.get("certificateCode").asText()).hasSize(12);
         assertThat(last.get("courseCompleted").asBoolean()).isTrue();
         assertThat(last.get("completedChapters").asInt()).isEqualTo(chapters.size());
 

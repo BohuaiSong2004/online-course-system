@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.bohuai.ocs.mapper.QuizMapper">
+
+    <!-- Quiz content is read on every chapter view; it shares the catalog cache. Attempts bypass it. -->
+    <cache-ref namespace="com.bohuai.ocs.mapper.CourseMapper"/>
+
+    <resultMap id="questionMap" type="com.bohuai.ocs.model.QuizQuestion">
+        <id property="id" column="q_id"/>
+        <result property="chapterId" column="chapter_id"/>
+        <result property="position" column="q_position"/>
+        <result property="prompt" column="prompt"/>
+        <result property="explanation" column="explanation"/>
+        <collection property="options" ofType="com.bohuai.ocs.model.QuizOption">
+            <id property="id" column="o_id"/>
+            <result property="questionId" column="q_id"/>
+            <result property="position" column="o_position"/>
+            <result property="text" column="text"/>
+            <result property="correct" column="correct"/>
+        </collection>
+    </resultMap>
+
+    <select id="findQuestions" resultMap="questionMap">
+        SELECT q.id AS q_id, q.chapter_id, q.position AS q_position, q.prompt, q.explanation,
+               o.id AS o_id, o.position AS o_position, o.text, o.correct
+        FROM quiz_questions q
+        LEFT JOIN quiz_options o ON o.question_id = q.id
+        WHERE q.chapter_id = #{chapterId}
+        ORDER BY q.position, q.id, o.position, o.id
+    </select>
+
+    <delete id="deleteQuestions">
+        DELETE FROM quiz_questions WHERE chapter_id = #{chapterId}
+    </delete>
+
+    <insert id="insertQuestion" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO quiz_questions (chapter_id, position, prompt, explanation)
+        VALUES (#{chapterId}, #{position}, #{prompt}, #{explanation})
+    </insert>
+
+    <insert id="insertOption" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO quiz_options (question_id, position, text, correct)
+        VALUES (#{questionId}, #{position}, #{text}, #{correct})
+    </insert>
+
+    <update id="updatePassPercent">
+        UPDATE chapters SET quiz_pass_percent = #{passPercent} WHERE id = #{chapterId}
+    </update>
+
+    <insert id="insertAttempt" useGeneratedKeys="true" keyProperty="id" flushCache="false">
+        INSERT INTO quiz_attempts (user_id, chapter_id, score, total, passed)
+        VALUES (#{userId}, #{chapterId}, #{score}, #{total}, #{passed})
+    </insert>
+
+    <select id="bestAttempt" resultType="com.bohuai.ocs.model.QuizAttempt" useCache="false">
+        SELECT id, user_id, chapter_id, score, total, passed, created_at
+        FROM quiz_attempts
+        WHERE user_id = #{userId} AND chapter_id = #{chapterId}
+        ORDER BY passed DESC, score DESC, created_at DESC
+        LIMIT 1
+    </select>
+</mapper>

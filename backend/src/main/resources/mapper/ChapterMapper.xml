@@ -6,16 +6,20 @@
     <cache-ref namespace="com.bohuai.ocs.mapper.CourseMapper"/>
 
     <select id="findOutlineByCourse" resultType="com.bohuai.ocs.model.Chapter">
-        SELECT id, course_id, title, position, duration_min, is_preview AS preview, created_at, updated_at
-        FROM chapters
-        WHERE course_id = #{courseId}
-        ORDER BY position, id
+        SELECT c.id, c.course_id, c.title, c.position, c.duration_min, c.is_preview AS preview,
+               c.video_url, c.quiz_pass_percent, c.created_at, c.updated_at,
+               (SELECT COUNT(*) FROM quiz_questions q WHERE q.chapter_id = c.id) AS quiz_question_count
+        FROM chapters c
+        WHERE c.course_id = #{courseId}
+        ORDER BY c.position, c.id
     </select>
 
     <select id="findById" resultType="com.bohuai.ocs.model.Chapter">
-        SELECT id, course_id, title, content, position, duration_min, is_preview AS preview, created_at, updated_at
-        FROM chapters
-        WHERE id = #{id}
+        SELECT c.id, c.course_id, c.title, c.content, c.video_url, c.position, c.duration_min,
+               c.is_preview AS preview, c.quiz_pass_percent, c.created_at, c.updated_at,
+               (SELECT COUNT(*) FROM quiz_questions q WHERE q.chapter_id = c.id) AS quiz_question_count
+        FROM chapters c
+        WHERE c.id = #{id}
     </select>
 
     <select id="nextPosition" resultType="int" useCache="false">
@@ -23,13 +27,14 @@
     </select>
 
     <insert id="insert" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO chapters (course_id, title, content, position, duration_min, is_preview)
-        VALUES (#{courseId}, #{title}, #{content}, #{position}, #{durationMin}, #{preview})
+        INSERT INTO chapters (course_id, title, content, video_url, position, duration_min, is_preview)
+        VALUES (#{courseId}, #{title}, #{content}, #{videoUrl}, #{position}, #{durationMin}, #{preview})
     </insert>
 
     <update id="update">
         UPDATE chapters
-        SET title = #{title}, content = #{content}, duration_min = #{durationMin}, is_preview = #{preview}
+        SET title = #{title}, content = #{content}, video_url = #{videoUrl}, duration_min = #{durationMin},
+            is_preview = #{preview}
         WHERE id = #{id}
     </update>
 

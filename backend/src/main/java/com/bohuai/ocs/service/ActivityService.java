@@ -15,6 +15,8 @@ public class ActivityService {
     public static final String COMPLETE_CHAPTER = "COMPLETE_CHAPTER";
     public static final String COMPLETE_COURSE = "COMPLETE_COURSE";
     public static final String ASSIGNED = "ASSIGNED";
+    public static final String QUIZ_PASSED = "QUIZ_PASSED";
+    public static final String QUIZ_FAILED = "QUIZ_FAILED";
 
     private final ActivityMapper mapper;
 

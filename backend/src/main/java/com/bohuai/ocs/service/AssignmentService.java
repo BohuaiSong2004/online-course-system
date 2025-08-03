@@ -10,6 +10,7 @@ import com.bohuai.ocs.model.Course;
 import com.bohuai.ocs.model.CourseStat;
 import com.bohuai.ocs.model.TeamStat;
 import com.bohuai.ocs.security.CurrentUser;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,6 +38,7 @@ public class AssignmentService {
     private final ActivityService activity;
     private final Clock clock;
 
+    @Autowired
     public AssignmentService(AdminMapper admin, CourseService courses, ActivityService activity) {
         this(admin, courses, activity, Clock.systemUTC());
     }
