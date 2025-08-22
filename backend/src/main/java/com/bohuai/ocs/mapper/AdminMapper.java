@@ -49,8 +49,13 @@ public interface AdminMapper {
     List<Long> usersInScope(@Param("userIds") List<Long> userIds, @Param("managerId") Long managerId);
 
     // ---------- assignments ----------
-    int upsertAssignment(@Param("userId") long userId, @Param("courseId") long courseId,
+    /** The existing assignment (id and due date only), row-locked, or null. */
+    AssignmentRow lockAssignment(@Param("userId") long userId, @Param("courseId") long courseId);
+
+    int insertAssignment(@Param("userId") long userId, @Param("courseId") long courseId,
                          @Param("assignedBy") long assignedBy, @Param("dueDate") LocalDate dueDate);
+
+    int updateDueDate(@Param("id") long id, @Param("dueDate") LocalDate dueDate);
 
     int enrollIfMissing(@Param("userId") long userId, @Param("courseId") long courseId);
 

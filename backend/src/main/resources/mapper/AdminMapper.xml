@@ -88,12 +88,18 @@
     </select>
 
     <!-- ===================== assignments ===================== -->
-    <!-- Returns 1 when inserted, 2 when an existing assignment's due date changed, 0 when unchanged. -->
-    <insert id="upsertAssignment">
+    <select id="lockAssignment" resultType="com.bohuai.ocs.model.AssignmentRow">
+        SELECT id, due_date FROM assignments WHERE user_id = #{userId} AND course_id = #{courseId} FOR UPDATE
+    </select>
+
+    <insert id="insertAssignment">
         INSERT INTO assignments (user_id, course_id, assigned_by, due_date)
         VALUES (#{userId}, #{courseId}, #{assignedBy}, #{dueDate})
-        ON DUPLICATE KEY UPDATE due_date = VALUES(due_date)
     </insert>
+
+    <update id="updateDueDate">
+        UPDATE assignments SET due_date = #{dueDate} WHERE id = #{id}
+    </update>
 
     <insert id="enrollIfMissing">
         INSERT IGNORE INTO enrollments (user_id, course_id, status) VALUES (#{userId}, #{courseId}, 'ACTIVE')

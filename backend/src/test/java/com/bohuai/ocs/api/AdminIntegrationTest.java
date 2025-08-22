@@ -92,9 +92,16 @@ class AdminIntegrationTest {
                 .isGreaterThan(0);
         assertThat(res.get("skipped").asInt()).isEqualTo(1);
 
-        // idempotent
+        // idempotent; changing the due date updates instead of duplicating
         send(post("/api/admin/assignments"), manager, Map.of("courseId", 2, "teamId", 1, "dueDate", due.toString()))
-                .andExpect(jsonPath("$.created").value(0));
+                .andExpect(jsonPath("$.created").value(0))
+                .andExpect(jsonPath("$.updated").value(0));
+        send(post("/api/admin/assignments"), manager,
+                Map.of("courseId", 2, "teamId", 1, "dueDate", due.plusDays(1).toString()))
+                .andExpect(jsonPath("$.created").value(0))
+                .andExpect(jsonPath("$.updated", greaterThan(0)));
+        send(post("/api/admin/assignments"), manager, Map.of("courseId", 2, "teamId", 1, "dueDate", due.toString()))
+                .andExpect(jsonPath("$.updated", greaterThan(0)));
 
         String leo = login("learner@demo.dev"); // Engineering
         JsonNode enrollments = body(send(get("/api/me/enrollments"), leo, null));
@@ -146,7 +153,7 @@ class AdminIntegrationTest {
         String refresh = reg.get("refreshToken").asText();
 
         JsonNode team = body(send(post("/api/admin/teams"), admin,
-                Map.of("name", "Team " + UUID.randomUUID().toString().substring(0, 6), "managerId", 5))
+                Map.of("name", "Team " + UUID.randomUUID().toString().substring(0, 6), "managerId", 1))
                 .andExpect(status().isCreated()));
         send(post("/api/admin/teams"), admin, Map.of("name", team.get("name").asText()))
                 .andExpect(status().isConflict());

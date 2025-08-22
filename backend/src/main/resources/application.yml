@@ -11,6 +11,16 @@ spring:
     password: ${DB_PASSWORD:ocs}
     hikari:
       maximum-pool-size: ${DB_POOL_SIZE:10}
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      ssl:
+        enabled: ${REDIS_SSL:false}
+      timeout: 500ms
+      repositories:
+        enabled: false
   flyway:
     # Schema is versioned with Flyway (db/migration). Demo data (db/demo) is applied once on an empty
     # database; real environments set OCS_FLYWAY_LOCATIONS=classpath:db/migration to leave it out.
@@ -38,13 +48,31 @@ ocs:
     refill-per-second: ${OCS_RATE_LIMIT_RATE:50}     # mirrors API Gateway rate_limit
   cors:
     allowed-origins: ${OCS_CORS_ORIGINS:http://localhost:3000}
+  redis:
+    # Shared catalog cache + cluster-wide rate limiting. Required when running more than one API instance.
+    enabled: ${OCS_REDIS_ENABLED:false}
 
 management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,prometheus
+  health:
+    redis:
+      enabled: ${OCS_REDIS_ENABLED:false}
+  metrics:
+    tags:
+      application: ocs-backend
+
+springdoc:
+  api-docs:
+    enabled: ${OCS_API_DOCS:true}
+  swagger-ui:
+    path: /swagger-ui.html
 
 logging:
+  # Plain text locally; set LOGGING_STRUCTURED_FORMAT_CONSOLE=ecs for JSON logs (requestId is included).
+  pattern:
+    correlation: "[%X{requestId:-}] "
   level:
     com.bohuai.ocs.mapper: ${SQL_LOG_LEVEL:INFO}   # DEBUG prints SQL and cache hit ratios

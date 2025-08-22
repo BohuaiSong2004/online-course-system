@@ -5,9 +5,10 @@
     <!--
       Second-level cache for the read-heavy catalog. Any write in this namespace (or in ChapterMapper,
       which joins it via cache-ref) flushes it, so readers never see stale chapter counts after an edit.
-      readOnly=false returns serialized copies, so callers may safely mutate results.
+      OcsCache returns serialized copies (callers may mutate results) and switches to a Redis-backed,
+      cluster-wide cache when OCS_REDIS_ENABLED=true.
     -->
-    <cache eviction="LRU" flushInterval="300000" size="1024" readOnly="false"/>
+    <cache type="com.bohuai.ocs.cache.OcsCache"/>
 
     <sql id="listCols">
         c.id, c.slug, c.title, c.summary, c.category, c.level, c.instructor_id,

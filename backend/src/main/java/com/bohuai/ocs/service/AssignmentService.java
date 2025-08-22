@@ -11,6 +11,7 @@ import com.bohuai.ocs.model.CourseStat;
 import com.bohuai.ocs.model.TeamStat;
 import com.bohuai.ocs.security.CurrentUser;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,6 +22,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 /** Course assignments with due dates, and the completion reports managers and admins use. */
@@ -78,11 +80,20 @@ public class AssignmentService {
         List<Long> allowed = admin.usersInScope(new ArrayList<>(requested), scope);
         int created = 0, updated = 0, unchanged = 0;
         for (Long userId : allowed) {
-            int n = admin.upsertAssignment(userId, course.getId(), caller.id(), req.dueDate());
-            if (n == 1) {
+            // Explicit read-then-write: MySQL's affected-row count for ON DUPLICATE KEY depends on the
+            // driver's useAffectedRows setting, so it can't tell "unchanged" from "inserted" reliably.
+            AssignmentRow existing = admin.lockAssignment(userId, course.getId());
+            if (existing == null) {
+                try {
+                    admin.insertAssignment(userId, course.getId(), caller.id(), req.dueDate());
+                } catch (DuplicateKeyException race) {
+                    unchanged++; // assigned concurrently by someone else
+                    continue;
+                }
                 created++;
                 activity.log(userId, course.getId(), null, ActivityService.ASSIGNED);
-            } else if (n == 2) {
+            } else if (!Objects.equals(existing.getDueDate(), req.dueDate())) {
+                admin.updateDueDate(existing.getId(), req.dueDate());
                 updated++;
             } else {
                 unchanged++;
