@@ -81,6 +81,14 @@ public class AdminService {
         return admin.listTeams(scope(caller));
     }
 
+    public List<AdminUserView> teamMembers(CurrentUser caller, long teamId) {
+        Team t = admin.findTeam(teamId);
+        if (t == null || (!caller.isAdmin() && !Objects.equals(t.getManagerId(), caller.id()))) {
+            throw ApiException.notFound("Team");
+        }
+        return admin.teamMembers(teamId, scope(caller));
+    }
+
     @Transactional
     public Team createTeam(TeamRequest req) {
         Team t = new Team();

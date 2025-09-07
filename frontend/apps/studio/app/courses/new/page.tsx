@@ -9,7 +9,7 @@ export default async function NewCoursePage() {
   const auth = await requireAuthor("/studio/courses/new");
   if ("page" in auth) return auth.page;
   return (
-    <PageShell zone="studio">
+    <PageShell zone="studio" user={auth.user}>
       <Link href="/" className="text-sm font-medium text-brand-700 hover:underline">
         ← Studio
       </Link>

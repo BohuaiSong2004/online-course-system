@@ -10,7 +10,7 @@ export default async function NewChapterPage({ params }: { params: Promise<{ id:
   const auth = await requireAuthor(`/studio/courses/${courseId}/chapters/new`);
   if ("page" in auth) return auth.page;
   return (
-    <PageShell zone="studio">
+    <PageShell zone="studio" user={auth.user}>
       <Link href={`/courses/${courseId}`} className="text-sm font-medium text-brand-700 hover:underline">
         ← Back to course
       </Link>

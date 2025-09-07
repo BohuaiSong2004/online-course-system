@@ -15,7 +15,8 @@ export function PublishControls({ course }: { course: Course }) {
     setError(null);
     try {
       await action();
-      after ? after() : router.refresh();
+      if (after) after();
+      else router.refresh();
     } catch (e) {
       setError(errorMessage(e));
     } finally {
@@ -84,6 +85,8 @@ export function ChapterList({ courseId, chapters }: { courseId: number; chapters
             <a href={`/studio/courses/${courseId}/chapters/${c.id}`} className="flex-1 font-medium hover:text-brand-700">
               {c.title}
               {c.preview && <span className="ml-2 text-xs font-normal text-brand-700">preview</span>}
+              {c.videoUrl && <span className="ml-2 text-xs font-normal text-ink-muted">video</span>}
+              {!!c.quizQuestionCount && <span className="ml-2 text-xs font-normal text-ink-muted">quiz · {c.quizQuestionCount}</span>}
             </a>
             <span className="text-xs text-ink-muted">{c.durationMin} min</span>
             <div className="flex gap-1">

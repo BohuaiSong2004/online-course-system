@@ -42,6 +42,9 @@ public interface AdminMapper {
 
     int deleteTeam(@Param("id") long id);
 
+    /** Active members of a team, if the team is in the manager's scope (all teams for admins). */
+    List<AdminUserView> teamMembers(@Param("teamId") long teamId, @Param("managerId") Long managerId);
+
     /** Ids of active users in a team (scoped to the manager when given). */
     List<Long> teamMemberIds(@Param("teamId") long teamId, @Param("managerId") Long managerId);
 

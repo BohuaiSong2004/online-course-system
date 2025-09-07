@@ -40,6 +40,33 @@ export async function api<T>(path: string, init: RequestInit & { revalidate?: nu
   return res.json() as Promise<T>;
 }
 
+/**
+ * Anonymous call for public, cacheable data. Never reads cookies, so pages built only from publicApi()
+ * can be statically generated and revalidated (ISR) instead of rendered per request.
+ */
+export async function publicApi<T>(path: string, revalidate = 60): Promise<T> {
+  const res = await fetch(`${BACKEND_URL}/api${path}`, { next: { revalidate } });
+  if (!res.ok) {
+    let body: ApiErrorBody | null = null;
+    try {
+      body = await res.json();
+    } catch {
+      /* non-JSON error */
+    }
+    throw new ApiError(res.status, body);
+  }
+  return res.json() as Promise<T>;
+}
+
+export async function publicApiOrNull<T>(path: string, revalidate = 60): Promise<T | null> {
+  try {
+    return await publicApi<T>(path, revalidate);
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 404) return null;
+    throw e;
+  }
+}
+
 /** Like api(), but returns null on 404 instead of throwing. */
 export async function apiOrNull<T>(path: string, init?: RequestInit & { revalidate?: number }): Promise<T | null> {
   try {

@@ -17,7 +17,7 @@ export default async function StudioHome() {
   const courses = await api<Course[]>("/studio/courses");
 
   return (
-    <PageShell zone="studio">
+    <PageShell zone="studio" user={auth.user}>
       <div className="flex items-end justify-between">
         <div>
           <h1 className="text-3xl font-bold">Studio</h1>

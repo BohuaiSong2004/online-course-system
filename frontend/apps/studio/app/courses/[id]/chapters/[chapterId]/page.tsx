@@ -24,7 +24,7 @@ export default async function EditChapterPage({ params }: { params: Promise<{ id
   if (chapter.courseId !== courseId) notFound();
 
   return (
-    <PageShell zone="studio">
+    <PageShell zone="studio" user={auth.user}>
       <Link href={`/courses/${courseId}`} className="text-sm font-medium text-brand-700 hover:underline">
         ← Back to course
       </Link>

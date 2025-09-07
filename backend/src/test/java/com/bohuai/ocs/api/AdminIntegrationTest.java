@@ -72,6 +72,9 @@ class AdminIntegrationTest {
         send(get("/api/admin/reports/overview"), learner, null).andExpect(status().isForbidden());
         send(get("/api/admin/users"), manager, null).andExpect(status().isForbidden());
         send(post("/api/admin/teams"), manager, Map.of("name", "Nope")).andExpect(status().isForbidden());
+        send(get("/api/admin/teams/1/members"), manager, null)
+                .andExpect(status().isOk()).andExpect(jsonPath("$[*].teamName", everyItem(isOneOf("Engineering"))));
+        send(get("/api/admin/teams/3/members"), manager, null).andExpect(status().isNotFound()); // People Ops
         // managers only see the teams they manage
         send(get("/api/admin/teams"), manager, null)
                 .andExpect(status().isOk())

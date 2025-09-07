@@ -2,26 +2,20 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { clientApi, errorMessage } from "@ocs/shared/client";
+import { routes } from "@ocs/shared/routes";
 import type { ProgressResponse } from "@ocs/shared/types";
 
 export function CompleteButton({ chapterId, slug, completed }: { chapterId: number; slug: string; completed: boolean }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [courseDone, setCourseDone] = useState(false);
+  const [certificate, setCertificate] = useState<string | null | undefined>(undefined);
 
-  if (courseDone) {
-    return (
-      <div className="rounded-lg bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700">
-        🎉 Course complete!{" "}
-        <a href="/learn" className="underline">
-          Back to my learning
-        </a>
-      </div>
-    );
+  if (certificate !== undefined) {
+    return <CourseCompleteBanner certificate={certificate} />;
   }
   if (completed) {
-    return <span className="rounded-lg bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-700">✓ Completed</span>;
+    return <span className="rounded-lg bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-800">✓ Completed</span>;
   }
   return (
     <div className="text-center">
@@ -34,7 +28,7 @@ export function CompleteButton({ chapterId, slug, completed }: { chapterId: numb
           try {
             const res = await clientApi<ProgressResponse>(`/chapters/${chapterId}/complete`, { method: "POST" });
             if (res.courseCompleted) {
-              setCourseDone(true);
+              setCertificate(res.certificateCode);
               router.refresh();
             } else if (res.nextChapterId) {
               router.push(`/${slug}/${res.nextChapterId}`);
@@ -51,7 +45,28 @@ export function CompleteButton({ chapterId, slug, completed }: { chapterId: numb
       >
         {busy ? "Saving…" : "Mark complete & continue"}
       </button>
-      {error && <p className="mt-2 text-sm text-rose-700">{error}</p>}
+      {error && (
+        <p role="alert" className="mt-2 text-sm text-rose-700">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+export function CourseCompleteBanner({ certificate }: { certificate: string | null }) {
+  return (
+    <div role="status" className="rounded-lg bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-900">
+      🎉 Course complete!{" "}
+      {certificate && (
+        <a href={routes.certificate(certificate)} className="underline">
+          View your certificate
+        </a>
+      )}{" "}
+      ·{" "}
+      <a href="/learn" className="underline">
+        Back to my learning
+      </a>
     </div>
   );
 }

@@ -74,6 +74,11 @@ public class AdminController {
         return admin.teams(auth.requireManager());
     }
 
+    @GetMapping("/teams/{teamId}/members")
+    public List<AdminUserView> teamMembers(@PathVariable long teamId) {
+        return admin.teamMembers(auth.requireManager(), teamId);
+    }
+
     @PostMapping("/teams")
     @ResponseStatus(HttpStatus.CREATED)
     public Team createTeam(@Valid @RequestBody TeamRequest req) {

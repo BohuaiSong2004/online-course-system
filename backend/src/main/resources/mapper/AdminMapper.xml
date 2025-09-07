@@ -75,6 +75,13 @@
         DELETE FROM teams WHERE id = #{id}
     </delete>
 
+    <select id="teamMembers" resultType="com.bohuai.ocs.model.AdminUserView">
+        SELECT <include refid="userCols"/> FROM users u JOIN teams t ON t.id = u.team_id
+        WHERE u.team_id = #{teamId} AND u.active = TRUE
+        <if test="managerId != null">AND t.manager_id = #{managerId}</if>
+        ORDER BY u.display_name
+    </select>
+
     <select id="teamMemberIds" resultType="long">
         SELECT u.id FROM users u WHERE u.team_id = #{teamId} AND u.active = TRUE
         <include refid="inScope"><property name="col" value="u.id"/></include>

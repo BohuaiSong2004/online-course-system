@@ -11,4 +11,10 @@ export const routes = {
   studio: "/studio",
   studioCourse: (id: number) => `/studio/courses/${id}`,
   studioChapter: (courseId: number, chapterId: number) => `/studio/courses/${courseId}/chapters/${chapterId}`,
+  account: "/learn/account",
+  certificate: (code: string) => `/certificates/${code}`,
+  admin: "/admin",
+  adminAssignments: "/admin/assignments",
+  adminUsers: "/admin/users",
+  adminTeams: "/admin/teams",
 };

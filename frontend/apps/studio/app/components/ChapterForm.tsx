@@ -19,6 +19,7 @@ export function ChapterForm({ courseId, chapter }: { courseId: number; chapter?:
     const f = new FormData(e.currentTarget);
     const body = {
       title: f.get("title"),
+      videoUrl: f.get("videoUrl"),
       durationMin: Number(f.get("durationMin")),
       preview: f.get("preview") === "on",
       content,
@@ -66,6 +67,20 @@ export function ChapterForm({ courseId, chapter }: { courseId: number; chapter?:
           <input id="durationMin" name="durationMin" type="number" min={1} max={600} defaultValue={chapter?.durationMin ?? 10} className="input" />
         </div>
       </div>
+      <div>
+        <label className="label" htmlFor="videoUrl">
+          Video URL <span className="font-normal text-ink-muted">(optional — YouTube or Vimeo links are embedded)</span>
+        </label>
+        <input
+          id="videoUrl"
+          name="videoUrl"
+          type="url"
+          pattern="https://.*"
+          placeholder="https://www.youtube.com/watch?v=…"
+          defaultValue={chapter?.videoUrl ?? ""}
+          className="input"
+        />
+      </div>
       <label className="flex items-center gap-2 text-sm text-ink-soft">
         <input type="checkbox" name="preview" defaultChecked={chapter?.preview} className="h-4 w-4 rounded border-slate-300" />
         Free preview (visible without enrolling)
@@ -99,6 +114,11 @@ export function ChapterForm({ courseId, chapter }: { courseId: number; chapter?:
         <button className="btn-primary" disabled={busy}>
           {busy ? "Saving…" : chapter ? "Save chapter" : "Add chapter"}
         </button>
+        {chapter && (
+          <a href={`/studio/courses/${courseId}/chapters/${chapter.id}/quiz`} className="btn-secondary">
+            {chapter.quizQuestionCount ? `Edit quiz (${chapter.quizQuestionCount})` : "Add a quiz"}
+          </a>
+        )}
         {chapter && (
           <button type="button" className="btn-danger ml-auto" onClick={onDelete} disabled={busy}>
             Delete chapter

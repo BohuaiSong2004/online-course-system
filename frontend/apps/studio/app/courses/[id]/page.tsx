@@ -27,7 +27,7 @@ export default async function EditCoursePage({ params }: { params: Promise<{ id:
   const { course, chapters, enrollmentCount } = detail;
 
   return (
-    <PageShell zone="studio">
+    <PageShell zone="studio" user={auth.user}>
       <Link href="/" className="text-sm font-medium text-brand-700 hover:underline">
         ← Studio
       </Link>
@@ -36,10 +36,16 @@ export default async function EditCoursePage({ params }: { params: Promise<{ id:
         <StatusBadge status={course.status} />
       </div>
       <p className="mt-1 text-sm text-ink-soft">
-        {chapters.length} chapters · {formatMinutes(course.totalMinutes)} · {enrollmentCount} enrolled ·{" "}
-        <a href={routes.course(course.slug)} className="text-brand-700 hover:underline">
-          View public page ↗
-        </a>
+        {chapters.length} chapters · {formatMinutes(course.totalMinutes)} · {enrollmentCount} enrolled
+        {course.status === "PUBLISHED" && (
+          <>
+            {" "}
+            ·{" "}
+            <a href={routes.course(course.slug)} className="text-brand-700 hover:underline">
+              View public page ↗
+            </a>
+          </>
+        )}
       </p>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-3">

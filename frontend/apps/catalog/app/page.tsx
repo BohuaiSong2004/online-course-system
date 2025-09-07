@@ -4,7 +4,7 @@ import { PageShell } from "@ocs/shared/components/PageShell";
 import { EmptyState } from "@ocs/shared/components/SignInPrompt";
 import { levelLabel } from "@ocs/shared/format";
 import { routes } from "@ocs/shared/routes";
-import { api } from "@ocs/shared/server";
+import { publicApi } from "@ocs/shared/server";
 import { LEVELS, type Course, type PageResult } from "@ocs/shared/types";
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
@@ -40,8 +40,8 @@ export default async function CatalogPage({ searchParams }: { searchParams: Sear
   if (level) query.set("level", level);
 
   const [result, categories] = await Promise.all([
-    api<PageResult<Course>>(`/courses?${query}`, { revalidate: 60 }),
-    api<string[]>("/courses/categories", { revalidate: 300 }),
+    publicApi<PageResult<Course>>(`/courses?${query}`, 60),
+    publicApi<string[]>("/courses/categories", 300),
   ]);
   const base = { q, category, level };
 
