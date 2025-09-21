@@ -2,6 +2,7 @@ package com.bohuai.ocs.api;
 
 import com.bohuai.ocs.cache.OcsCache;
 import com.bohuai.ocs.ratelimit.RateLimiter;
+import com.bohuai.ocs.ratelimit.RedisRateLimiter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
@@ -63,13 +64,21 @@ class RedisIntegrationTest {
 
     @Test
     void redisRateLimiterSharesOneBucketPerClient() {
+        assertThat(limiter).isInstanceOf(RedisRateLimiter.class);
+        // Two limiter instances = two API nodes sharing one Redis. Refill is negligible, so exactly the
+        // burst capacity is allowed in total, no matter which node serves each request.
+        RedisRateLimiter nodeA = new RedisRateLimiter(redis, 5, 0.001);
+        RedisRateLimiter nodeB = new RedisRateLimiter(redis, 5, 0.001);
         String client = "test-" + UUID.randomUUID();
         int allowed = 0;
-        for (int i = 0; i < 150; i++) {
-            if (limiter.tryConsume(client).allowed()) {
+        for (int i = 0; i < 10; i++) {
+            if ((i % 2 == 0 ? nodeA : nodeB).tryConsume(client).allowed()) {
                 allowed++;
             }
         }
-        assertThat(allowed).isBetween(100, 110); // burst of 100 plus whatever refilled during the loop
+        assertThat(allowed).isEqualTo(5);
+        RateLimiter.Decision refused = nodeA.tryConsume(client);
+        assertThat(refused.allowed()).isFalse();
+        assertThat(refused.retryAfterMillis()).isPositive();
     }
 }

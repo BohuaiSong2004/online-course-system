@@ -1,4 +1,4 @@
-# Full stack: MySQL + Spring Boot API + four Next.js zones. Open http://localhost:3000
+# Full stack: MySQL + Redis + Spring Boot API + five Next.js zones. Open http://localhost:3000
 services:
   mysql:
     image: mysql:8.0
@@ -14,17 +14,28 @@ services:
       interval: 5s
       retries: 20
 
+  redis:
+    image: redis:7
+    ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 10
+
   backend:
     build: ./backend
     environment:
       DB_URL: jdbc:mysql://mysql:3306/ocs?useSSL=false&allowPublicKeyRetrieval=true&connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true
       OCS_JWT_SECRET: ${OCS_JWT_SECRET:-change-me-in-production-at-least-32-bytes}
-      # Behind the shell proxy every request shares one source IP, so the in-process limiter is off here;
+      OCS_REDIS_ENABLED: "true"
+      REDIS_HOST: redis
+      # Behind the shell proxy every request shares one source IP, so the per-IP limiter is off here;
       # in AWS, API Gateway enforces the limits (infra/terraform).
       OCS_RATE_LIMIT_ENABLED: "false"
     ports: ["8080:8080"]
     depends_on:
       mysql: { condition: service_healthy }
+      redis: { condition: service_healthy }
 
   catalog:
     build: { context: ./frontend, args: { APP: catalog } }
@@ -41,11 +52,23 @@ services:
     environment: { BACKEND_URL: http://backend:8080, SITE_URL: http://localhost:3000, PORT: 3003 }
     depends_on: [backend]
 
+  admin:
+    build: { context: ./frontend, args: { APP: admin } }
+    environment: { BACKEND_URL: http://backend:8080, SITE_URL: http://localhost:3000, PORT: 3004 }
+    depends_on: [backend]
+
   shell:
     build: { context: ./frontend, args: { APP: shell } }
-    environment: { BACKEND_URL: http://backend:8080, SITE_URL: http://localhost:3000, PORT: 3000 }
+    environment:
+      BACKEND_URL: http://backend:8080
+      SITE_URL: http://localhost:3000
+      PORT: 3000
+      CATALOG_URL: http://catalog:3001
+      LEARN_URL: http://learn:3002
+      STUDIO_URL: http://studio:3003
+      ADMIN_URL: http://admin:3004
     ports: ["3000:3000"]
-    depends_on: [catalog, learn, studio]
+    depends_on: [catalog, learn, studio, admin]
 
 volumes:
   mysql-data:

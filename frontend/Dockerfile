@@ -9,6 +9,7 @@ COPY apps/shell/package.json apps/shell/
 COPY apps/catalog/package.json apps/catalog/
 COPY apps/learn/package.json apps/learn/
 COPY apps/studio/package.json apps/studio/
+COPY apps/admin/package.json apps/admin/
 RUN npm ci --no-audit --no-fund
 
 FROM node:22-alpine AS build
@@ -18,7 +19,9 @@ ARG BACKEND_URL=http://backend:8080
 ARG CATALOG_URL=http://catalog:3001
 ARG LEARN_URL=http://learn:3002
 ARG STUDIO_URL=http://studio:3003
-ENV BACKEND_URL=$BACKEND_URL CATALOG_URL=$CATALOG_URL LEARN_URL=$LEARN_URL STUDIO_URL=$STUDIO_URL NEXT_TELEMETRY_DISABLED=1
+ARG ADMIN_URL=http://admin:3004
+ENV BACKEND_URL=$BACKEND_URL CATALOG_URL=$CATALOG_URL LEARN_URL=$LEARN_URL STUDIO_URL=$STUDIO_URL ADMIN_URL=$ADMIN_URL \
+    NEXT_TELEMETRY_DISABLED=1
 WORKDIR /repo
 COPY --from=deps /repo/node_modules ./node_modules
 COPY . .

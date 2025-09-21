@@ -105,7 +105,7 @@ export default async function AssignmentsPage({ searchParams }: { searchParams: 
                     </td>
                     <td className="px-4 py-3">{a.courseTitle}</td>
                     <td className="min-w-40 px-4 py-3">
-                      <ProgressBar done={a.completedChapters} total={a.totalChapters} />
+                      <ProgressBar done={a.completedChapters} total={a.totalChapters} label={`Progress of ${a.userName}`} />
                     </td>
                     <td className="whitespace-nowrap px-4 py-3">{a.dueDate ? formatDay(a.dueDate) : "—"}</td>
                     <td className="px-4 py-3">

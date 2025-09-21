@@ -1,0 +1,13 @@
+{
+  "name": "ocs-e2e",
+  "private": true,
+  "description": "Browser end-to-end tests for the whole stack (Playwright + axe-core)",
+  "scripts": {
+    "test": "playwright test",
+    "report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
+    "@playwright/test": "^1.65.1"
+  }
+}
