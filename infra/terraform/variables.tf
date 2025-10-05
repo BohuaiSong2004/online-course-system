@@ -17,8 +17,61 @@ variable "stage_name" {
 }
 
 variable "backend_base_url" {
-  description = "Public base URL of the Spring Boot service (e.g. the ALB in front of ECS), without trailing slash"
+  description = "Override for the API origin behind API Gateway. Empty = the ALB created by this stack."
   type        = string
+  default     = ""
+}
+
+variable "image_tag" {
+  description = "Container image tag to deploy (pushed to the ECR repositories by the deploy workflow)"
+  type        = string
+  default     = "latest"
+}
+
+variable "certificate_arn" {
+  description = "ACM certificate for HTTPS on the load balancer. Empty = HTTP only (demo)."
+  type        = string
+  default     = ""
+}
+
+variable "site_url" {
+  description = "Public URL of the site (canonical links, sitemap). Empty = the load balancer's address."
+  type        = string
+  default     = ""
+}
+
+variable "backend_desired_count" {
+  description = "API instances. More than one requires Redis (enabled by this stack) for shared cache and rate limits."
+  type        = number
+  default     = 2
+}
+
+variable "backend_max_count" {
+  description = "Upper bound for API autoscaling (CPU target tracking)"
+  type        = number
+  default     = 6
+}
+
+variable "db_instance_class" {
+  type    = string
+  default = "db.t4g.micro"
+}
+
+variable "db_multi_az" {
+  description = "Standby replica in a second AZ (recommended for production)"
+  type        = bool
+  default     = false
+}
+
+variable "redis_node_type" {
+  type    = string
+  default = "cache.t4g.micro"
+}
+
+variable "deletion_protection" {
+  description = "Protect the database from accidental deletion (set false to tear down a demo)"
+  type        = bool
+  default     = true
 }
 
 variable "throttle_rate_limit" {

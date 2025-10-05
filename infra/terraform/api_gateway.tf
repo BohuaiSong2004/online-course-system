@@ -8,6 +8,10 @@
 #
 # The backend's in-process RateLimitFilter mirrors the stage limits for local development.
 
+locals {
+  backend_base_url = var.backend_base_url != "" ? var.backend_base_url : "http://${aws_lb.web.dns_name}"
+}
+
 resource "aws_api_gateway_rest_api" "api" {
   name        = "${var.name}-api"
   description = "Online Course Management System API"
@@ -49,7 +53,7 @@ resource "aws_api_gateway_integration" "proxy_any" {
   http_method             = aws_api_gateway_method.proxy_any.http_method
   type                    = "HTTP_PROXY"
   integration_http_method = "ANY"
-  uri                     = "${var.backend_base_url}/api/{proxy}"
+  uri                     = "${local.backend_base_url}/api/{proxy}"
   timeout_milliseconds    = 10000
 
   request_parameters = {
@@ -87,7 +91,7 @@ resource "aws_api_gateway_integration" "auth_any" {
   http_method             = aws_api_gateway_method.auth_any.http_method
   type                    = "HTTP_PROXY"
   integration_http_method = "ANY"
-  uri                     = "${var.backend_base_url}/api/auth/{proxy}"
+  uri                     = "${local.backend_base_url}/api/auth/{proxy}"
   timeout_milliseconds    = 10000
 
   request_parameters = {

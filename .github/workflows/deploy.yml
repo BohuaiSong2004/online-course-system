@@ -1,0 +1,56 @@
+name: Deploy to AWS
+
+# Manual: builds and pushes all six images, then applies Terraform with the new tag.
+# Requires an IAM role trusted for GitHub OIDC (secret AWS_DEPLOY_ROLE_ARN) and an S3 state bucket
+# (repository variable TF_STATE_BUCKET). See infra/README.md.
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'us-west-2' }}
+  TAG: ${{ github.sha }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    defaults:
+      run:
+        working-directory: infra/terraform
+    steps:
+      - uses: actions/checkout@v5
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - uses: hashicorp/setup-terraform@v3
+      - name: Terraform init
+        run: >
+          terraform init -input=false
+          -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}"
+          -backend-config="key=ocs/terraform.tfstate"
+          -backend-config="region=${{ env.AWS_REGION }}"
+      - name: Ensure image repositories exist
+        run: terraform apply -input=false -auto-approve -target=aws_ecr_repository.this -var "region=$AWS_REGION"
+      - uses: aws-actions/amazon-ecr-login@v2
+        id: ecr
+      - name: Build and push images
+        working-directory: .
+        run: |
+          REG=${{ steps.ecr.outputs.registry }}
+          docker build -t $REG/ocs/backend:$TAG ./backend && docker push $REG/ocs/backend:$TAG
+          for app in shell catalog learn studio admin; do
+            docker build --build-arg APP=$app -t $REG/ocs/$app:$TAG ./frontend
+            docker push $REG/ocs/$app:$TAG
+          done
+      - name: Terraform apply
+        run: terraform apply -input=false -auto-approve -var "region=$AWS_REGION" -var "image_tag=$TAG"
+      - name: Summary
+        run: |
+          echo "### Deployed $TAG" >> "$GITHUB_STEP_SUMMARY"
+          echo "Web: $(terraform output -raw web_url)" >> "$GITHUB_STEP_SUMMARY"
+          echo "API Gateway: $(terraform output -raw invoke_url)" >> "$GITHUB_STEP_SUMMARY"
