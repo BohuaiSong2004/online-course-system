@@ -34,8 +34,9 @@ export function SiteHeader({ zone, initialUser }: { zone: Zone; initialUser?: Us
   useEffect(() => {
     if (initialUser !== undefined) return;
     let cancelled = false;
-    clientApi<UserView>("/auth/me")
-      .then((u) => !cancelled && setUser(u))
+    // /auth/session answers 200 for anonymous visitors too, so public pages log no console errors.
+    clientApi<{ user: UserView | null }>("/auth/session")
+      .then((s) => !cancelled && setUser(s.user))
       .catch(() => !cancelled && setUser(null));
     return () => {
       cancelled = true;

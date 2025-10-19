@@ -94,6 +94,7 @@ export default async function CatalogPage({ searchParams }: { searchParams: Sear
       </div>
 
       <div className="mt-8">
+        <h2 className="sr-only">Results</h2>
         {result.items.length === 0 ? (
           <EmptyState title="No courses found">
             Try a different search or{" "}

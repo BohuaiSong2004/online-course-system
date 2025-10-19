@@ -79,6 +79,11 @@ public class AuthService {
         tokens.revoke(rawRefreshToken);
     }
 
+    public UserView meOrNull(CurrentUser current) {
+        User u = users.findById(current.id());
+        return u == null || !Boolean.TRUE.equals(u.getActive()) ? null : UserView.of(u);
+    }
+
     public UserView me(CurrentUser current) {
         return UserView.of(requireUser(current.id()));
     }

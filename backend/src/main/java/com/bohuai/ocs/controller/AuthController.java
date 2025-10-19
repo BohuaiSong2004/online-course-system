@@ -73,6 +73,14 @@ public class AuthController {
         return authService.me(auth.require());
     }
 
+    /** Like /me but never 401: {"user": null} for anonymous visitors (used by the page header). */
+    @GetMapping("/session")
+    public java.util.Map<String, UserView> session() {
+        java.util.Map<String, UserView> body = new java.util.HashMap<>();
+        body.put("user", auth.current().map(authService::meOrNull).orElse(null));
+        return body;
+    }
+
     private String refreshToken(RefreshRequest body, HttpServletRequest request) {
         if (body != null && body.refreshToken() != null) {
             return body.refreshToken();

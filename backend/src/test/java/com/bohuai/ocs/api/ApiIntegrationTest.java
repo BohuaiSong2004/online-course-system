@@ -143,6 +143,13 @@ class ApiIntegrationTest {
     }
 
     @Test
+    void sessionEndpointNeverFails() throws Exception {
+        send(get("/api/auth/session"), null, null).andExpect(status().isOk()).andExpect(jsonPath("$.user").isEmpty());
+        send(get("/api/auth/session"), registerLearner(), null)
+                .andExpect(status().isOk()).andExpect(jsonPath("$.user.role").value("LEARNER"));
+    }
+
+    @Test
     void learnersCannotAuthor() throws Exception {
         String token = registerLearner();
         send(get("/api/studio/courses"), token, null).andExpect(status().isForbidden());
