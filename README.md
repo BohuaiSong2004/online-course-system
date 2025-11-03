@@ -1,189 +1,163 @@
 # OpenCourse — Online Course Management System
 
-A full-stack e-learning portal for onboarding and training employees. Learners browse a catalog, enroll, read chapters and track their progress. Instructors write and publish courses in a studio.
+A corporate e-learning platform. Employees take courses with video, quizzes and certificates. Managers assign training with due dates and track their teams. Instructors write courses in a studio. Admins manage users and teams.
 
-- **Frontend:** Next.js 15 (App Router, SSR), React 19, Tailwind CSS. Split into **micro-frontends** using Next.js multi-zones.
-- **Backend:** Java 17, Spring Boot 3.5, MyBatis, MySQL 8. Stateless JWT auth.
-- **Infra:** AWS API Gateway throttling and rate limiting (Terraform), Docker Compose, GitHub Actions CI.
+[![CI](https://github.com/BohuaiSong2004/online-course-system/actions/workflows/ci.yml/badge.svg)](https://github.com/BohuaiSong2004/online-course-system/actions/workflows/ci.yml)
 
-| Course page (SSR + JSON-LD) | Learner dashboard | Studio |
+| Learner dashboard | Chapter quiz | Manager / admin reports |
 |---|---|---|
-| ![course](docs/screenshots/course.png) | ![dashboard](docs/screenshots/dashboard.png) | ![studio](docs/screenshots/studio.png) |
+| ![dashboard](docs/screenshots/dashboard.png) | ![quiz](docs/screenshots/quiz.png) | ![admin](docs/screenshots/admin-overview.png) |
+
+| Course page (static, SEO) | Verifiable certificate | Quiz editor | Phone |
+|---|---|---|---|
+| ![course](docs/screenshots/course.png) | ![certificate](docs/screenshots/certificate.png) | ![studio](docs/screenshots/studio-quiz.png) | ![mobile](docs/screenshots/mobile.png) |
 
 > This repository is a 2026 rebuild of a project I first built in 2025, rewritten from scratch.
 
----
+**Stack:** Next.js 15 micro-frontends (five zones) · React 19 · Tailwind · Spring Boot 3.5 · MyBatis · MySQL 8 · Redis · Flyway · JWT (jjwt) · Playwright · Terraform on AWS (ECS Fargate, RDS, ElastiCache, ALB, API Gateway).
 
-## Architecture
-
-```mermaid
-flowchart LR
-    B[Browser] -->|"/", /login, /register| SH[shell zone :3000]
-    SH -->|"/courses/*"| CA[catalog zone :3001]
-    SH -->|"/learn/*"| LE[learn zone :3002]
-    SH -->|"/studio/*"| ST[studio zone :3003]
-    SH -->|"/backend/* → /api/*"| GW
-    CA & LE & ST -->|SSR fetch + Bearer| GW
-    subgraph AWS
-      GW[API Gateway<br/>throttling + usage plans] --> API[Spring Boot API :8080]
-    end
-    API -->|MyBatis + 2nd-level cache| DB[(MySQL 8)]
-```
-
-| Zone | Path | Responsibility |
-|---|---|---|
-| `shell` | `/`, `/login`, `/register`, `sitemap.xml` | Home page, auth, and reverse proxy that stitches the zones together |
-| `catalog` | `/courses/*` | SEO-critical public pages: search, filters, course detail with JSON-LD |
-| `learn` | `/learn/*` | Learner dashboard, chapter reader, progress tracking |
-| `studio` | `/studio/*` | Course and chapter authoring for instructors and admins |
-
-Each zone is a separate Next.js app. You can build and deploy each one on its own, and a broken studio build can't take down the catalog. All four share `packages/shared`: types, API clients, Tailwind preset and UI components, so the product still looks like one app.
-
-**Auth flow.** Login returns a JWT in the response body and also sets it as an `httpOnly`, `SameSite=Lax` cookie. Browser calls go through the shell's same-origin `/backend/*` rewrite, so page JavaScript never touches the token. During SSR, each zone reads the cookie and forwards it as a `Bearer` header.
+**Measured** (details and method in [`docs/performance.md`](docs/performance.md)):
+- A composite B-tree index takes the activity feed from **176.8 ms → 0.37 ms** on 1M rows.
+- The MyBatis cache gives **~3× catalog throughput** under load (600 → 1,700–2,000 req/s on 2 vCPUs).
+- **200 concurrent learners** enrolling and completing the same course: 0 errors, 100% consistency checks passed.
+- Lighthouse on public pages: **99 / 100 / 100 / 100** (performance, accessibility, best practices, SEO).
+- **39 backend tests** (90.6% line coverage) and **21 browser tests**, including WCAG 2.1 AA scans, all in CI.
 
 ---
 
 ## Features
 
-**Learners:** full-text search, category and level filters, pagination, free preview chapters, one-click enroll, a Markdown chapter reader with prev/next navigation, "mark complete & continue", per-course progress bars, and a recent-activity feed.
-
-**Instructors:** create and edit courses, add/edit/delete/reorder chapters, write Markdown with live preview, publish and unpublish (publishing requires at least one chapter). Instructors can only edit their own courses. Admins can edit all of them.
-
-**Platform:** role-based access (`LEARNER`, `INSTRUCTOR`, `ADMIN`), drafts that stay invisible to the public, validation errors returned per field, and a consistent JSON error format.
-
----
-
-## Backend highlights
-
-### REST API
-
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| POST | `/api/auth/register` · `/login` · `/logout` | – | Stateless JWT auth (body and httpOnly cookie) |
-| GET | `/api/auth/me` | user | Current user |
-| GET | `/api/courses?q=&category=&level=&page=&size=` | – | Published catalog, paginated |
-| GET | `/api/courses/categories` · `/sitemap` | – | Facets and sitemap feed |
-| GET | `/api/courses/{slug}` | optional | Course, chapter outline, viewer state (enrolled, progress, canEdit) |
-| POST / DELETE | `/api/courses/{id}/enroll` | user | Enroll (idempotent) or unenroll |
-| GET | `/api/chapters/{id}` | optional | Chapter content (preview chapters are public, others need enrollment) |
-| POST | `/api/chapters/{id}/complete` | user | Mark complete. Completes the course when every chapter is done |
-| GET | `/api/me/enrollments` · `/api/me/activity` | user | Dashboard data |
-| GET / POST / PUT / DELETE | `/api/studio/courses[/{id}]` | instructor | Course CRUD |
-| POST | `/api/studio/courses/{id}/publish` · `/unpublish` | instructor | Visibility |
-| POST / PUT / DELETE | `/api/studio/courses/{id}/chapters`, `/api/studio/chapters/{id}` | instructor | Chapter CRUD |
-| PUT | `/api/studio/courses/{id}/chapters/order` | instructor | Reorder chapters (transactional) |
-
-### Database design and indexing
-
-Schema: [`backend/src/main/resources/db/schema.sql`](backend/src/main/resources/db/schema.sql). Six InnoDB tables: `users`, `courses`, `chapters`, `enrollments`, `chapter_progress`, `user_activity`.
-
-Each B-tree index was chosen for a specific query:
-
-| Index | Serves |
+| Role | Can do |
 |---|---|
-| `user_activity (user_id, created_at)` | "Latest N events for a user". MySQL does an index range scan in order, with no filesort |
-| `enrollments UNIQUE (user_id, course_id)` | "My courses" lookups by user, and enforces one enrollment per course |
-| `chapter_progress PK (user_id, chapter_id)` + `(user_id, course_id)` | Idempotent completion (`INSERT IGNORE`) and per-course progress counts |
-| `courses (status, published_at)`, `(category, status)` | Catalog listing and category filters |
-| `chapters (course_id, position)` | Ordered course outline |
+| **Learner** | Search the catalog (full-text), take free preview chapters, enroll, watch embedded video, read Markdown lessons, pass chapter quizzes, track progress, see assigned courses with due dates and overdue alerts, earn and print certificates, view their activity feed, edit their profile and password |
+| **Instructor** | Create and edit courses, add, reorder and delete chapters, attach a video, write a quiz (single answer, configurable pass mark), publish and unpublish |
+| **Manager** | See completion reports for the teams they manage, assign courses to a whole team or chosen people with a due date, filter assignments by status, export CSV |
+| **Admin** | Everything above, organisation-wide, plus user management (role, team, deactivate) and team management |
 
-**Measured.** [`scripts/benchmark_indexes.py`](scripts/benchmark_indexes.py) fills a copy of `user_activity` with **1,000,000 rows / 5,000 users** and times the exact activity-feed query from `ActivityMapper.xml` (MySQL 8.0, default config, run on a dev container):
+Anyone can check a certificate on a public page using its 12-character code.
 
-| | Plan | Mean | p95 |
-|---|---|---|---|
-| No index | `type=ALL`, `Using filesort`, ~1M rows examined | 176.8 ms | 192.6 ms |
-| `(user_id, created_at)` | `type=ref`, backward index scan, ~200 rows | 0.37 ms | 0.50 ms |
+## Architecture
 
-### Caching
-
-The catalog is read-heavy, so `CourseMapper` uses **MyBatis' second-level cache** (LRU, 1024 entries). `ChapterMapper` joins the same cache namespace through `<cache-ref>`, so any course *or* chapter write flushes it, and learners never see a stale chapter count after an edit. An integration test checks this. Per-user data (enrollments, progress, activity) changes on almost every write, so it is deliberately left uncached.
-
-### Rate limiting
-
-- **AWS:** [`infra/terraform`](infra/terraform) puts a REST API Gateway in front of the service. It applies stage-wide token-bucket throttling (50 rps, burst 100), a much stricter limit on `/api/auth/*` (5 rps, burst 10) against credential stuffing, and a usage plan with API keys and a daily quota for server-to-server integrations. Over-limit requests get `429` at the edge.
-- **Local:** `RateLimitFilter` is an in-process per-client token bucket configured with the same numbers, so development behaves the same way. It returns `429` with `Retry-After` and `X-RateLimit-*` headers.
-
-### SEO
-
-Catalog pages are server-rendered with per-page `<title>`, meta description, canonical URL and Open Graph tags. Course pages include `schema.org/Course` JSON-LD. The shell serves `sitemap.xml`, built from `/api/courses/sitemap`, and a `robots.txt` that keeps private zones out of search indexes.
-
----
-
-## Running it
-
-### Option A: everything in Docker
-
-```bash
-docker compose up --build
-# open http://localhost:3000
+```mermaid
+flowchart LR
+    B[Browser] --> SH["shell :3000<br/>home · auth · certificates<br/>+ session refresh middleware"]
+    SH -->|/courses| CA[catalog :3001<br/>ISR, SEO]
+    SH -->|/learn| LE[learn :3002]
+    SH -->|/studio| ST[studio :3003]
+    SH -->|/admin| AD[admin :3004]
+    SH -->|/backend/* → /api/*| API
+    CA & LE & ST & AD -->|SSR + Bearer| API
+    GW[API Gateway] --> API[Spring Boot API]
+    API --> DB[(MySQL 8<br/>Flyway)]
+    API --> R[(Redis<br/>shared cache + rate limits)]
 ```
 
-### Option B: dev mode
+- **Micro-frontends.** Each zone is a separate Next.js app (Next multi-zones), built and deployed on its own. They share types, API clients and UI through `frontend/packages/shared`. The shell proxies the other zones, so the browser only ever sees one origin.
+- **Rendering.** Public pages are statically generated and revalidated (ISR): the home page every 60 s, course pages pre-generated with JSON-LD, canonical URLs and Open Graph tags, plus a sitemap. Signed-in pages are server-rendered with the user's session. Personal state on public pages loads in the browser, so the cached HTML is the same for everyone.
+- **Sessions.**
+  - The access token is a 15-minute JWT. The refresh token is a random 256-bit value, stored only as a hash and rotated on every use.
+  - Reusing an already-rotated refresh token revokes all of that user's sessions. A 10 s grace window absorbs a browser's own parallel requests.
+  - Both tokens live in httpOnly, SameSite=Lax cookies. Cookie-authenticated writes from other sites are refused by an Origin check.
+  - The shell middleware refreshes sessions for every zone. The browser client refreshes once on a 401 and retries.
+  - Logout, a password change or an admin role change revokes refresh tokens.
+- **Caching.** The MyBatis second-level cache covers the read-heavy catalog. Chapter and quiz mappers share its namespace, so any edit invalidates everything that depends on it. With `OCS_REDIS_ENABLED=true` the cache moves to Redis and is shared by all API instances. Deserialization is restricted to the app's model classes and JDK types.
+- **Rate limiting.** A token bucket per client. It runs in-process for a single instance, or as an atomic Redis Lua script (on the Redis clock) for a cluster. AWS API Gateway applies stage, auth-endpoint and API-key usage-plan limits at the edge.
+- **Observability.** OpenAPI and Swagger UI, Prometheus metrics (including learning-event and rate-limit counters), an `X-Request-Id` on every log line, and optional JSON logs.
+
+## Data model and indexing
+
+Flyway migrations live in [`backend/src/main/resources/db/migration`](backend/src/main/resources/db/migration). Demo data is a separate one-time migration.
+
+| Table | Purpose / key indexes |
+|---|---|
+| `users`, `teams` | Roles LEARNER, MANAGER, INSTRUCTOR, ADMIN. A team has an optional manager |
+| `courses`, `chapters` | `FULLTEXT(title, summary, description)` for search. `(status, published_at)` and `(course_id, position)` for listing and outlines |
+| `enrollments` | `UNIQUE(user_id, course_id)` keeps enrollment idempotent and serves "my courses" |
+| `chapter_progress` | `PK(user_id, chapter_id)` makes completion idempotent (`INSERT IGNORE`) |
+| `assignments` | `UNIQUE(user_id, course_id)`, `due_date` index. Status (completed, overdue, in progress, not started) is derived when read |
+| `quiz_questions`, `quiz_options`, `quiz_attempts` | Graded on the server. The answer key is never sent before a pass |
+| `certificates` | `UNIQUE(code)`, `UNIQUE(user_id, course_id)` |
+| `refresh_tokens` | SHA-256 hash only, `replaced_by` chain for reuse detection |
+| `user_activity` | `(user_id, created_at)`: the benchmarked index |
+
+## API
+
+All routes are under `/api`. The full interactive reference is at **`/swagger-ui.html`** once the API is running.
+
+| Area | Endpoints |
+|---|---|
+| Auth | `POST /auth/register` · `/login` · `/refresh` · `/logout`, `GET /auth/me` · `/auth/session`, `PUT /me/password` · `/me/profile` |
+| Catalog | `GET /courses?q=&category=&level=&page=` · `/courses/{slug}` · `/courses/categories` · `/courses/sitemap` |
+| Learning | `POST·DELETE /courses/{id}/enroll`, `GET /chapters/{id}`, `POST /chapters/{id}/complete` · `/chapters/{id}/quiz/attempts`, `GET /me/enrollments` · `/me/activity` · `/me/certificates`, `GET /certificates/{code}` (public) |
+| Studio | CRUD `/studio/courses`, publish and unpublish, chapters CRUD and reorder, `GET·PUT /studio/chapters/{id}/quiz` |
+| Admin | `GET·PUT /admin/users`, CRUD `/admin/teams`, `GET /admin/teams/{id}/members`, `POST·GET·DELETE /admin/assignments`, `GET /admin/reports/overview` · `/admin/reports/assignments.csv` |
+
+## Run it
+
+**Everything in Docker:**
 
 ```bash
-# 1. MySQL
-docker compose up -d mysql
-
-# 2. API (creates the schema and seeds demo data on startup)
-cd backend && mvn spring-boot:run
-
-# 3. All four zones with hot reload
-cd frontend && npm install && npm run dev
-# open http://localhost:3000
+docker compose up --build        # MySQL, Redis, API, five zones → http://localhost:3000
 ```
 
-**Demo accounts** (password `password123`): `learner@demo.dev`, `instructor@demo.dev`, `mentor@demo.dev` (second instructor), `admin@demo.dev`.
+**Dev mode:**
+
+```bash
+docker compose up -d mysql redis
+cd backend && mvn spring-boot:run                    # Flyway creates the schema and demo data
+cd frontend && npm install && npm run dev            # five zones with hot reload → http://localhost:3000
+```
+
+**Demo accounts** (password `password123`):
+
+| Email | Role |
+|---|---|
+| `learner@demo.dev` | Learner on the Engineering team (has an overdue assignment) |
+| `manager@demo.dev` | Manager of Engineering and Sales |
+| `instructor@demo.dev` / `mentor@demo.dev` | Instructors |
+| `admin@demo.dev` | Admin |
 
 ### Configuration
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `DB_URL` / `DB_USER` / `DB_PASSWORD` | local `ocs` DB | MySQL connection |
-| `OCS_JWT_SECRET` | dev value | HMAC key, **at least 32 bytes**. Always set it in production |
-| `OCS_COOKIE_SECURE` | `false` | Set `true` behind HTTPS |
-| `OCS_RATE_LIMIT_*` | on, 100 burst / 50 rps | In-process limiter |
-| `OCS_CORS_ORIGINS` | `http://localhost:3000` | Front-end origins allowed for CORS and for cookie-authenticated writes (CSRF check) |
-| `FORWARD_HEADERS_STRATEGY` | `none` | Set `framework` only behind a trusted proxy/ALB, so the rate limiter sees real client IPs |
-| `DB_INIT_MODE` | `always` | Set `never` once migrations own the schema |
-| `BACKEND_URL` (frontend) | `http://localhost:8080` | API origin used by SSR and the shell proxy |
-| `CATALOG_URL` / `LEARN_URL` / `STUDIO_URL` | `localhost:3001-3003` | Zone origins (shell, resolved at build time) |
-| `SITE_URL` | `http://localhost:3000` | Canonical URLs and sitemap |
+| `DB_URL` / `DB_USER` / `DB_PASSWORD` | local `ocs` | MySQL (keep `connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true`) |
+| `OCS_JWT_SECRET` | dev value | HMAC key, at least 32 bytes |
+| `OCS_ACCESS_TTL` / `OCS_REFRESH_TTL` / `OCS_REFRESH_GRACE` | 900 / 1209600 / 10 s | Session lifetimes |
+| `OCS_COOKIE_SECURE` | `false` | Set `true` behind HTTPS (API and frontend) |
+| `OCS_CORS_ORIGINS` | `http://localhost:3000` | CORS and the cookie-write Origin check |
+| `OCS_REDIS_ENABLED`, `REDIS_HOST` / `REDIS_PORT` / `REDIS_SSL` | `false` | Shared cache and rate limits (required for more than one API instance) |
+| `OCS_RATE_LIMIT_*` | on, burst 100, 50/s | In-app limiter |
+| `FORWARD_HEADERS_STRATEGY` | `none` | `framework` behind a trusted load balancer |
+| `OCS_FLYWAY_LOCATIONS` | schema + demo | `classpath:db/migration` in real environments |
+| `LOGGING_STRUCTURED_FORMAT_CONSOLE` | — | `ecs` for JSON logs |
+| `BACKEND_URL`, `SITE_URL`, `CATALOG_URL` … `ADMIN_URL` | localhost | Frontend origins (shell rewrites resolve at build time) |
 
----
-
-## Tests
+## Quality
 
 ```bash
-cd backend
-mvn test                                   # unit tests (JWT, rate limiter, slugs)
-DB_URL='jdbc:mysql://localhost:3306/ocs?useSSL=false&allowPublicKeyRetrieval=true&connectionTimeZone=UTC&forceConnectionTimeZoneToSession=true' mvn test
-                                           # + end-to-end API tests against real MySQL
+cd backend && DB_URL=... REDIS_HOST=localhost mvn verify    # 39 tests + JaCoCo report (target/site/jacoco)
+cd frontend && npm run lint && npm run build                 # ESLint (incl. jsx-a11y) + type-check + build
+cd e2e && npm ci && npx playwright test                      # 21 browser tests against a running stack
 ```
 
-`ApiIntegrationTest` drives the whole API through MockMvc against a real database:
-- catalog paging and search, with drafts hidden from the public
-- the learner path: preview → 401/403 on locked chapters → enroll (idempotent) → read → complete every chapter → course marked completed → activity feed → unenroll
-- the instructor path: create → publishing blocked with no chapters → add chapters → publish → cache invalidation → reorder → another instructor gets 403 → delete
-- validation errors and bad credentials
+CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs backend tests against MySQL and Redis containers with a coverage summary, frontend lint and build, the full Playwright suite against a stack it boots itself, Terraform `fmt` and `validate`, and Docker builds of all six images.
 
-CI (`.github/workflows/ci.yml`) runs the backend tests against a MySQL service container, type-checks and builds all four frontend zones, and validates the Terraform.
+Performance scripts: [`perf/`](perf) (k6 load tests, Lighthouse) and [`scripts/benchmark_indexes.py`](scripts/benchmark_indexes.py). Results are in [`docs/performance.md`](docs/performance.md).
 
----
+## Deploying to AWS
+
+[`infra/`](infra) has a complete Terraform stack: VPC, ECS Fargate with Service Connect, RDS MySQL, ElastiCache Redis, ALB, ECR, Secrets Manager, CPU autoscaling and API Gateway. There is also a manual **Deploy** workflow that uses GitHub OIDC. See [`infra/README.md`](infra/README.md).
 
 ## Project layout
 
 ```
-backend/                 Spring Boot API
-  src/main/java/com/bohuai/ocs/
-    controller/          REST controllers (auth, catalog, learning, studio)
-    service/             business rules, authorization, transactions
-    mapper/ + resources/mapper/*.xml   MyBatis SQL
-    security/            JWT, auth filter, roles
-    config/              rate limiter, CORS, properties
-  src/main/resources/db/ schema.sql, data.sql (generated by scripts/gen_seed.py)
-frontend/                npm workspaces
-  apps/shell|catalog|learn|studio   Next.js zones
-  packages/shared        types, API clients, UI components, Tailwind preset
-infra/terraform/         API Gateway + throttling + usage plans
-scripts/                 seed generator, index benchmark
+backend/        Spring Boot API: controller · service · mapper (+ XML) · security · cache · ratelimit · observability
+                resources/db/migration (Flyway), resources/db/demo (seed, generated by scripts/gen_seed.py)
+frontend/       npm workspaces: apps/{shell,catalog,learn,studio,admin}, packages/shared, eslint.config.mjs
+e2e/            Playwright + axe-core suite
+infra/          Terraform (AWS) and deployment guide
+perf/           k6 scenarios, Lighthouse script
+scripts/        seed generator, index benchmark, screenshot capture
+docs/           performance results, screenshots
 ```
