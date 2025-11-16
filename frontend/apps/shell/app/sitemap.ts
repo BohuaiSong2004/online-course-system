@@ -1,7 +1,9 @@
 import type { MetadataRoute } from "next";
 import { BACKEND_URL, SITE_URL } from "@ocs/shared/server";
 
-export const revalidate = 3600;
+// Rendered per request, with the course list kept in the data cache for an hour. A static sitemap would
+// be baked at build time — when the API usually isn't running (e.g. docker build) — and list no courses.
+export const dynamic = "force-dynamic";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const pages: MetadataRoute.Sitemap = [

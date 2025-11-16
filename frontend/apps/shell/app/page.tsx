@@ -1,19 +1,19 @@
-import { CourseCard } from "@ocs/shared/components/CourseCard";
 import { PageShell } from "@ocs/shared/components/PageShell";
-import { EmptyState } from "@ocs/shared/components/SignInPrompt";
 import { routes } from "@ocs/shared/routes";
 import { publicApi } from "@ocs/shared/server";
+import { FeaturedCourses } from "./FeaturedCourses";
 import type { Course, PageResult } from "@ocs/shared/types";
 
-async function loadFeatured(): Promise<{ courses: Course[]; total: number; categories: string[] }> {
+async function loadFeatured(): Promise<{ courses: Course[]; total: number; categories: string[]; apiDown: boolean }> {
   try {
     const [page, categories] = await Promise.all([
       publicApi<PageResult<Course>>("/courses?size=6", 60),
       publicApi<string[]>("/courses/categories", 300),
     ]);
-    return { courses: page.items, total: page.total, categories };
+    return { courses: page.items, total: page.total, categories, apiDown: false };
   } catch {
-    return { courses: [], total: 0, categories: [] };
+    // Typically at build time (no API yet): the browser loads the list until the next regeneration.
+    return { courses: [], total: 0, categories: [], apiDown: true };
   }
 }
 
@@ -21,7 +21,7 @@ async function loadFeatured(): Promise<{ courses: Course[]; total: number; categ
 export const revalidate = 60;
 
 export default async function HomePage() {
-  const { courses, total, categories } = await loadFeatured();
+  const { courses, total, categories, apiDown } = await loadFeatured();
   return (
     <PageShell zone="shell">
       <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-700 via-brand-600 to-brand-500 px-8 py-14 text-white">
@@ -77,17 +77,7 @@ export default async function HomePage() {
             View all →
           </a>
         </div>
-        {courses.length === 0 ? (
-          <div className="mt-4">
-            <EmptyState title="No courses yet">The catalog is empty or the API is not reachable.</EmptyState>
-          </div>
-        ) : (
-          <div className="mt-4 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {courses.map((c) => (
-              <CourseCard key={c.id} course={c} />
-            ))}
-          </div>
-        )}
+        <FeaturedCourses initial={courses} loadInBrowser={apiDown} />
       </section>
     </PageShell>
   );
