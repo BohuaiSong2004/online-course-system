@@ -1,9 +1,11 @@
 "use client";
+import { useHydrated } from "@ocs/shared/hooks";
 import { useState } from "react";
 import { clientApi, errorMessage } from "@ocs/shared/client";
 import { routes } from "@ocs/shared/routes";
 
 export function AuthForm({ mode, next }: { mode: "login" | "register"; next: string }) {
+  const hydrated = useHydrated();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -22,7 +24,7 @@ export function AuthForm({ mode, next }: { mode: "login" | "register"; next: str
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4">
+    <form method="post" onSubmit={onSubmit} className="space-y-4">
       {mode === "register" && (
         <div>
           <label htmlFor="displayName" className="label">
@@ -57,7 +59,7 @@ export function AuthForm({ mode, next }: { mode: "login" | "register"; next: str
           {error}
         </p>
       )}
-      <button type="submit" className="btn-primary w-full" disabled={busy}>
+      <button type="submit" className="btn-primary w-full" disabled={!hydrated || busy}>
         {busy ? "Please wait…" : mode === "login" ? "Sign in" : "Create account"}
       </button>
       <p className="text-center text-sm text-ink-muted">

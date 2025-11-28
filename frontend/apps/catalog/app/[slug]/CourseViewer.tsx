@@ -1,4 +1,5 @@
 "use client";
+import { useHydrated } from "@ocs/shared/hooks";
 import { createContext, useContext, useEffect, useState } from "react";
 import { ProgressBar } from "@ocs/shared/components/ProgressBar";
 import { clientApi, errorMessage } from "@ocs/shared/client";
@@ -74,6 +75,7 @@ export function ChapterOutline({ slug, chapters }: { slug: string; chapters: Cha
 }
 
 export function EnrollAside({ course, chapters }: { course: Course; chapters: Chapter[] }) {
+  const hydrated = useHydrated();
   const { viewer, loading } = useContext(ViewerContext);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -111,7 +113,7 @@ export function EnrollAside({ course, chapters }: { course: Course; chapters: Ch
       <>
         <button
           className="btn-primary w-full"
-          disabled={busy}
+          disabled={!hydrated || busy}
           onClick={async () => {
             setBusy(true);
             setError(null);

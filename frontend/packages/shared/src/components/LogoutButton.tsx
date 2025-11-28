@@ -1,13 +1,15 @@
 "use client";
+import { useHydrated } from "../hooks";
 import { useState } from "react";
 import { clientApi } from "../client";
 
 export function LogoutButton() {
+  const hydrated = useHydrated();
   const [busy, setBusy] = useState(false);
   return (
     <button
       className="btn-ghost"
-      disabled={busy}
+      disabled={!hydrated || busy}
       onClick={async () => {
         setBusy(true);
         try {

@@ -1,10 +1,12 @@
 "use client";
+import { useHydrated } from "@ocs/shared/hooks";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { clientApi, errorMessage } from "@ocs/shared/client";
 import type { Chapter, Course } from "@ocs/shared/types";
 
 export function PublishControls({ course }: { course: Course }) {
+  const hydrated = useHydrated();
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,14 +30,14 @@ export function PublishControls({ course }: { course: Course }) {
     <div className="space-y-3">
       <button
         className={published ? "btn-secondary w-full" : "btn-primary w-full"}
-        disabled={busy}
+        disabled={!hydrated || busy}
         onClick={() => run(() => clientApi(`/studio/courses/${course.id}/${published ? "unpublish" : "publish"}`, { method: "POST" }))}
       >
         {published ? "Unpublish" : "Publish course"}
       </button>
       <button
         className="btn-danger w-full"
-        disabled={busy}
+        disabled={!hydrated || busy}
         onClick={() => {
           if (!window.confirm(`Delete “${course.title}”? This removes all chapters and enrollments.`)) return;
           run(() => clientApi(`/studio/courses/${course.id}`, { method: "DELETE" }), () => router.push("/"));
@@ -49,6 +51,7 @@ export function PublishControls({ course }: { course: Course }) {
 }
 
 export function ChapterList({ courseId, chapters }: { courseId: number; chapters: Chapter[] }) {
+  const hydrated = useHydrated();
   const router = useRouter();
   const [order, setOrder] = useState(chapters);
   const [busy, setBusy] = useState(false);
@@ -90,10 +93,10 @@ export function ChapterList({ courseId, chapters }: { courseId: number; chapters
             </a>
             <span className="text-xs text-ink-muted">{c.durationMin} min</span>
             <div className="flex gap-1">
-              <button className="btn-ghost px-2 py-1" disabled={busy || i === 0} onClick={() => move(i, -1)} aria-label="Move up">
+              <button className="btn-ghost px-2 py-1" disabled={!hydrated || busy || i === 0} onClick={() => move(i, -1)} aria-label="Move up">
                 ↑
               </button>
-              <button className="btn-ghost px-2 py-1" disabled={busy || i === order.length - 1} onClick={() => move(i, 1)} aria-label="Move down">
+              <button className="btn-ghost px-2 py-1" disabled={!hydrated || busy || i === order.length - 1} onClick={() => move(i, 1)} aria-label="Move down">
                 ↓
               </button>
             </div>

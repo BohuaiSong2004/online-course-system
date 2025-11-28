@@ -4,7 +4,9 @@ test("home page lists courses and links into the catalog", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Onboard faster");
   await expect(page.getByRole("heading", { name: "Newest courses" })).toBeVisible();
-  await page.getByRole("link", { name: /^Browse \d+ courses$/ }).click();
+  // Courses render even if this ISR page was generated while the API was down (browser fallback).
+  await expect(page.getByRole("heading", { level: 3 }).first()).toBeVisible();
+  await page.getByRole("link", { name: /^Browse( \d+)? courses$/ }).click();
   await expect(page).toHaveURL(/\/courses$/);
 });
 

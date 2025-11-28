@@ -1,4 +1,5 @@
 "use client";
+import { useHydrated } from "@ocs/shared/hooks";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { clientApi, errorMessage } from "@ocs/shared/client";
@@ -6,6 +7,7 @@ import { levelLabel } from "@ocs/shared/format";
 import { LEVELS, type Course } from "@ocs/shared/types";
 
 export function CourseForm({ course }: { course?: Course }) {
+  const hydrated = useHydrated();
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,7 +36,7 @@ export function CourseForm({ course }: { course?: Course }) {
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4">
+    <form method="post" onSubmit={onSubmit} className="space-y-4">
       <div>
         <label className="label" htmlFor="title">
           Title
@@ -75,7 +77,7 @@ export function CourseForm({ course }: { course?: Course }) {
       </div>
       {error && <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">{error}</p>}
       <div className="flex items-center gap-3">
-        <button className="btn-primary" disabled={busy}>
+        <button className="btn-primary" disabled={!hydrated || busy}>
           {busy ? "Saving…" : course ? "Save changes" : "Create course"}
         </button>
         {saved && <span className="text-sm text-emerald-700">Saved ✓</span>}

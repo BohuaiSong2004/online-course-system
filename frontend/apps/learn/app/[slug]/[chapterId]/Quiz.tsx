@@ -1,4 +1,5 @@
 "use client";
+import { useHydrated } from "@ocs/shared/hooks";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { clientApi, errorMessage } from "@ocs/shared/client";
@@ -16,6 +17,7 @@ interface Props {
 
 /** Chapter quiz. Grading happens on the server; correct answers are revealed only after a pass. */
 export function Quiz({ chapterId, slug, questions, passPercent, enrolled, bestAttempt }: Props) {
+  const hydrated = useHydrated();
   const router = useRouter();
   const [answers, setAnswers] = useState<Record<number, number>>({});
   const [result, setResult] = useState<QuizResult | null>(null);
@@ -40,7 +42,7 @@ export function Quiz({ chapterId, slug, questions, passPercent, enrolled, bestAt
   }
 
   return (
-    <form onSubmit={submit} aria-describedby="quiz-help">
+    <form method="post" onSubmit={submit} aria-describedby="quiz-help">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 id="quiz-heading" className="text-xl font-semibold">
           Check your understanding
@@ -123,7 +125,7 @@ export function Quiz({ chapterId, slug, questions, passPercent, enrolled, bestAt
         )}
         {enrolled ? (
           !result?.passed && (
-            <button className="btn-primary" disabled={busy || Object.keys(answers).length === 0}>
+            <button className="btn-primary" disabled={!hydrated || busy || Object.keys(answers).length === 0}>
               {busy ? "Checking…" : result ? "Try again" : "Submit answers"}
             </button>
           )

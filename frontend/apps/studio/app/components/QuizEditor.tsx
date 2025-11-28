@@ -1,4 +1,5 @@
 "use client";
+import { useHydrated } from "@ocs/shared/hooks";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { clientApi, errorMessage } from "@ocs/shared/client";
@@ -37,6 +38,7 @@ export function QuizEditor({
   chapterId: number;
   initial: { passPercent: number; questions: QuizQuestion[] };
 }) {
+  const hydrated = useHydrated();
   const router = useRouter();
   const [passPercent, setPassPercent] = useState(initial.passPercent);
   const [questions, setQuestions] = useState<DraftQuestion[]>(
@@ -105,7 +107,7 @@ export function QuizEditor({
               <label className="label" htmlFor={`p-${q.key}`}>
                 Question {qi + 1}
               </label>
-              <button
+              <button disabled={!hydrated}
                 type="button"
                 className="text-sm text-rose-700 hover:underline"
                 onClick={() => setQuestions((qs) => qs.filter((_, i) => i !== qi))}
@@ -149,7 +151,7 @@ export function QuizEditor({
                   <button
                     type="button"
                     className="btn-ghost px-2"
-                    disabled={q.options.length <= 2}
+                    disabled={!hydrated || q.options.length <= 2}
                     aria-label={`Remove option ${oi + 1}`}
                     onClick={() =>
                       update(qi, (x) => {
@@ -164,7 +166,7 @@ export function QuizEditor({
                 </div>
               ))}
               {q.options.length < 6 && (
-                <button
+                <button disabled={!hydrated}
                   type="button"
                   className="text-sm font-medium text-brand-700 hover:underline"
                   onClick={() => update(qi, (x) => ({ ...x, options: [...x.options, { key: key(), text: "", correct: false }] }))}
@@ -187,10 +189,10 @@ export function QuizEditor({
       </ol>
 
       <div className="flex flex-wrap items-center gap-3">
-        <button type="button" className="btn-secondary" onClick={() => setQuestions((qs) => [...qs, blankQuestion()])}>
+        <button disabled={!hydrated} type="button" className="btn-secondary" onClick={() => setQuestions((qs) => [...qs, blankQuestion()])}>
           + Add question
         </button>
-        <button type="button" className="btn-primary" onClick={save} disabled={busy}>
+        <button type="button" className="btn-primary" onClick={save} disabled={!hydrated || busy}>
           {busy ? "Saving…" : "Save quiz"}
         </button>
         <a href={`/studio/courses/${courseId}`} className="btn-ghost">

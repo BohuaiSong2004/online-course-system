@@ -1,10 +1,12 @@
 "use client";
+import { useHydrated } from "@ocs/shared/hooks";
 import { useState } from "react";
 import { clientApi, errorMessage } from "@ocs/shared/client";
 import { roleLabel } from "@ocs/shared/format";
 import { ROLES, type AdminUser, type Team } from "@ocs/shared/types";
 
 export function UserRow({ user, teams, isSelf }: { user: AdminUser; teams: Team[]; isSelf: boolean }) {
+  const hydrated = useHydrated();
   const [role, setRole] = useState(user.role);
   const [teamId, setTeamId] = useState(user.teamId ? String(user.teamId) : "");
   const [active, setActive] = useState(user.active);
@@ -66,7 +68,7 @@ export function UserRow({ user, teams, isSelf }: { user: AdminUser; teams: Team[
         />
       </td>
       <td className="whitespace-nowrap px-4 py-3 text-right">
-        <button type="button" className="btn-secondary py-1" disabled={!dirty || busy} onClick={save}>
+        <button type="button" className="btn-secondary py-1" disabled={!hydrated || !dirty || busy} onClick={save}>
           {busy ? "Saving…" : "Save"}
         </button>
         {msg && (

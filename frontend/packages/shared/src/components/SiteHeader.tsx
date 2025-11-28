@@ -1,4 +1,5 @@
 "use client";
+import { useHydrated } from "../hooks";
 import { useEffect, useState } from "react";
 import { clientApi } from "../client";
 import { roleLabel } from "../format";
@@ -28,6 +29,7 @@ function NavLink({ href, active, children }: { href: string; active: boolean; ch
  * statically. Cross-zone links are plain anchors (full page loads between independent apps).
  */
 export function SiteHeader({ zone, initialUser }: { zone: Zone; initialUser?: UserView | null }) {
+  const hydrated = useHydrated();
   const [user, setUser] = useState<UserView | null | undefined>(initialUser);
   const [open, setOpen] = useState(false);
 
@@ -101,7 +103,7 @@ export function SiteHeader({ zone, initialUser }: { zone: Zone; initialUser?: Us
               </a>
             </>
           )}
-          <button
+          <button disabled={!hydrated}
             type="button"
             className="btn-ghost px-2 md:hidden"
             aria-expanded={open}

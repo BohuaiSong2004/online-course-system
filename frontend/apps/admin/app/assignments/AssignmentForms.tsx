@@ -1,10 +1,12 @@
 "use client";
+import { useHydrated } from "@ocs/shared/hooks";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { clientApi, errorMessage } from "@ocs/shared/client";
 import type { AdminUser, AssignResult, Course, Team } from "@ocs/shared/types";
 
 export function AssignForm({ courses, teams }: { courses: Course[]; teams: Team[] }) {
+  const hydrated = useHydrated();
   const router = useRouter();
   const [teamId, setTeamId] = useState<string>(teams[0] ? String(teams[0].id) : "");
   const [members, setMembers] = useState<AdminUser[]>([]);
@@ -58,7 +60,7 @@ export function AssignForm({ courses, teams }: { courses: Course[]; teams: Team[
   }
 
   return (
-    <form onSubmit={submit} className="mt-4 grid gap-4 lg:grid-cols-4">
+    <form method="post" onSubmit={submit} className="mt-4 grid gap-4 lg:grid-cols-4">
       <div className="lg:col-span-2">
         <label htmlFor="courseId" className="label">
           Course
@@ -133,7 +135,7 @@ export function AssignForm({ courses, teams }: { courses: Course[]; teams: Team[
       </fieldset>
 
       <div className="flex flex-wrap items-center gap-3 lg:col-span-4">
-        <button className="btn-primary" disabled={busy || (!wholeTeam && picked.size === 0)}>
+        <button className="btn-primary" disabled={!hydrated || busy || (!wholeTeam && picked.size === 0)}>
           {busy ? "Assigning…" : "Assign"}
         </button>
         {msg && (
@@ -147,13 +149,14 @@ export function AssignForm({ courses, teams }: { courses: Course[]; teams: Team[
 }
 
 export function RemoveAssignment({ id, label }: { id: number; label: string }) {
+  const hydrated = useHydrated();
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   return (
     <button
       type="button"
       className="text-sm text-rose-700 hover:underline disabled:opacity-50"
-      disabled={busy}
+      disabled={!hydrated || busy}
       aria-label={`Remove assignment: ${label}`}
       onClick={async () => {
         if (!window.confirm(`Remove the assignment "${label}"? Their enrollment and progress are kept.`)) return;

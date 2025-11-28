@@ -1,4 +1,5 @@
 "use client";
+import { useHydrated } from "@ocs/shared/hooks";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { clientApi, errorMessage } from "@ocs/shared/client";
@@ -6,6 +7,7 @@ import { routes } from "@ocs/shared/routes";
 import type { ProgressResponse } from "@ocs/shared/types";
 
 export function CompleteButton({ chapterId, slug, completed }: { chapterId: number; slug: string; completed: boolean }) {
+  const hydrated = useHydrated();
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -21,7 +23,7 @@ export function CompleteButton({ chapterId, slug, completed }: { chapterId: numb
     <div className="text-center">
       <button
         className="btn-primary"
-        disabled={busy}
+        disabled={!hydrated || busy}
         onClick={async () => {
           setBusy(true);
           setError(null);

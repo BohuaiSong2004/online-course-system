@@ -1,4 +1,5 @@
 "use client";
+import { useHydrated } from "@ocs/shared/hooks";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { clientApi, errorMessage } from "@ocs/shared/client";
@@ -20,13 +21,14 @@ function ManagerSelect({ id, value, onChange, managers, label }: {
 }
 
 export function NewTeamForm({ managers }: { managers: AdminUser[] }) {
+  const hydrated = useHydrated();
   const router = useRouter();
   const [name, setName] = useState("");
   const [managerId, setManagerId] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   return (
-    <form
+    <form method="post"
       className="mt-4 flex flex-wrap items-end gap-3"
       onSubmit={async (e) => {
         e.preventDefault();
@@ -56,7 +58,7 @@ export function NewTeamForm({ managers }: { managers: AdminUser[] }) {
         </label>
         <ManagerSelect id="team-manager" value={managerId} onChange={setManagerId} managers={managers} label="Manager" />
       </div>
-      <button className="btn-primary" disabled={busy}>
+      <button className="btn-primary" disabled={!hydrated || busy}>
         {busy ? "Creating…" : "Create team"}
       </button>
       {error && (
@@ -69,6 +71,7 @@ export function NewTeamForm({ managers }: { managers: AdminUser[] }) {
 }
 
 export function TeamRow({ team, managers }: { team: Team; managers: AdminUser[] }) {
+  const hydrated = useHydrated();
   const router = useRouter();
   const [name, setName] = useState(team.name);
   const [managerId, setManagerId] = useState(team.managerId ? String(team.managerId) : "");
@@ -102,7 +105,7 @@ export function TeamRow({ team, managers }: { team: Team; managers: AdminUser[] 
         <button
           type="button"
           className="btn-secondary py-1"
-          disabled={!dirty || busy}
+          disabled={!hydrated || !dirty || busy}
           onClick={() =>
             run(() => clientApi(`/admin/teams/${team.id}`, { method: "PUT", json: { name, managerId: managerId ? Number(managerId) : null } }))
           }
@@ -112,7 +115,7 @@ export function TeamRow({ team, managers }: { team: Team; managers: AdminUser[] 
         <button
           type="button"
           className="btn-danger py-1"
-          disabled={busy}
+          disabled={!hydrated || busy}
           onClick={() => {
             if (window.confirm(`Delete team "${team.name}"? Members stay, without a team.`)) {
               run(() => clientApi(`/admin/teams/${team.id}`, { method: "DELETE" }));
