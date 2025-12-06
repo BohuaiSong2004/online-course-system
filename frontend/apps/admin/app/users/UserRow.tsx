@@ -40,7 +40,7 @@ export function UserRow({ user, teams, isSelf }: { user: AdminUser; teams: Team[
         <div className="text-xs text-ink-muted">{user.email}</div>
       </td>
       <td className="px-4 py-3">
-        <select value={role} onChange={(e) => setRole(e.target.value as AdminUser["role"])} className="input w-auto" aria-label={`Role for ${user.displayName}`}>
+        <select disabled={!hydrated} value={role} onChange={(e) => setRole(e.target.value as AdminUser["role"])} className="input w-auto" aria-label={`Role for ${user.displayName}`}>
           {ROLES.map((r) => (
             <option key={r} value={r}>
               {roleLabel(r)}
@@ -49,7 +49,7 @@ export function UserRow({ user, teams, isSelf }: { user: AdminUser; teams: Team[
         </select>
       </td>
       <td className="px-4 py-3">
-        <select value={teamId} onChange={(e) => setTeamId(e.target.value)} className="input w-auto" aria-label={`Team for ${user.displayName}`}>
+        <select disabled={!hydrated} value={teamId} onChange={(e) => setTeamId(e.target.value)} className="input w-auto" aria-label={`Team for ${user.displayName}`}>
           <option value="">No team</option>
           {teams.map((t) => (
             <option key={t.id} value={t.id}>
@@ -59,7 +59,7 @@ export function UserRow({ user, teams, isSelf }: { user: AdminUser; teams: Team[
         </select>
       </td>
       <td className="px-4 py-3">
-        <input
+        <input disabled={!hydrated}
           type="checkbox"
           checked={active}
           onChange={(e) => setActive(e.target.checked)}

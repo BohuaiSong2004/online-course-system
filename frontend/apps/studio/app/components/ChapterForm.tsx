@@ -97,7 +97,7 @@ export function ChapterForm({ courseId, chapter }: { courseId: number; chapter?:
           <span className="ml-auto self-center text-xs text-ink-muted">Markdown supported</span>
         </div>
         {tab === "write" ? (
-          <textarea
+          <textarea disabled={!hydrated}
             aria-label="Chapter content"
             rows={18}
             value={content}

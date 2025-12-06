@@ -87,7 +87,7 @@ export function QuizEditor({
         <label htmlFor="pass" className="label">
           Pass mark (%)
         </label>
-        <input
+        <input disabled={!hydrated}
           id="pass"
           type="number"
           min={1}
@@ -115,7 +115,7 @@ export function QuizEditor({
                 Remove question
               </button>
             </div>
-            <textarea
+            <textarea disabled={!hydrated}
               id={`p-${q.key}`}
               rows={2}
               value={q.prompt}
@@ -127,7 +127,7 @@ export function QuizEditor({
               <legend className="label">Options (select the correct one)</legend>
               {q.options.map((o, oi) => (
                 <div key={o.key} className="flex items-center gap-2">
-                  <input
+                  <input disabled={!hydrated}
                     type="radio"
                     name={`correct-${q.key}`}
                     checked={o.correct}
@@ -137,7 +137,7 @@ export function QuizEditor({
                     }
                     className="h-4 w-4 accent-brand-600"
                   />
-                  <input
+                  <input disabled={!hydrated}
                     value={o.text}
                     aria-label={`Option ${oi + 1}`}
                     onChange={(e) =>
@@ -178,7 +178,7 @@ export function QuizEditor({
             <label className="label mt-3" htmlFor={`e-${q.key}`}>
               Explanation <span className="font-normal text-ink-muted">(shown after the learner passes)</span>
             </label>
-            <input
+            <input disabled={!hydrated}
               id={`e-${q.key}`}
               value={q.explanation}
               onChange={(e) => update(qi, (x) => ({ ...x, explanation: e.target.value }))}

@@ -8,8 +8,9 @@ import type { AdminUser, Team } from "@ocs/shared/types";
 function ManagerSelect({ id, value, onChange, managers, label }: {
   id?: string; value: string; onChange: (v: string) => void; managers: AdminUser[]; label: string;
 }) {
+  const hydrated = useHydrated();
   return (
-    <select id={id} value={value} onChange={(e) => onChange(e.target.value)} className="input w-auto" aria-label={label}>
+    <select disabled={!hydrated} id={id} value={value} onChange={(e) => onChange(e.target.value)} className="input w-auto" aria-label={label}>
       <option value="">No manager</option>
       {managers.map((m) => (
         <option key={m.id} value={m.id}>
@@ -50,7 +51,7 @@ export function NewTeamForm({ managers }: { managers: AdminUser[] }) {
         <label htmlFor="team-name" className="label">
           Name
         </label>
-        <input id="team-name" value={name} onChange={(e) => setName(e.target.value)} required maxLength={100} className="input w-64" />
+        <input disabled={!hydrated} id="team-name" value={name} onChange={(e) => setName(e.target.value)} required maxLength={100} className="input w-64" />
       </div>
       <div>
         <label htmlFor="team-manager" className="label">
@@ -95,7 +96,7 @@ export function TeamRow({ team, managers }: { team: Team; managers: AdminUser[] 
   return (
     <tr>
       <td className="px-4 py-3">
-        <input value={name} onChange={(e) => setName(e.target.value)} className="input w-56" aria-label="Team name" />
+        <input disabled={!hydrated} value={name} onChange={(e) => setName(e.target.value)} className="input w-56" aria-label="Team name" />
       </td>
       <td className="px-4 py-3">
         <ManagerSelect value={managerId} onChange={setManagerId} managers={managers} label={`Manager of ${team.name}`} />

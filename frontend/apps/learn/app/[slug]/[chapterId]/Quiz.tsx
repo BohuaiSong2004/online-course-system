@@ -84,7 +84,7 @@ export function Quiz({ chapterId, slug, questions, passPercent, enrolled, bestAt
                           name={`q-${q.id}`}
                           value={o.id}
                           checked={chosen}
-                          disabled={!enrolled || busy}
+                          disabled={!hydrated || !enrolled || busy}
                           onChange={() => {
                             setAnswers((a) => ({ ...a, [q.id]: o.id }));
                             if (result && !result.passed) setResult(null);

@@ -77,7 +77,7 @@ export function AssignForm({ courses, teams }: { courses: Course[]; teams: Team[
         <label htmlFor="teamId" className="label">
           Team
         </label>
-        <select id="teamId" value={teamId} onChange={(e) => setTeamId(e.target.value)} className="input">
+        <select disabled={!hydrated} id="teamId" value={teamId} onChange={(e) => setTeamId(e.target.value)} className="input">
           {teams.map((t) => (
             <option key={t.id} value={t.id}>
               {t.name} ({t.memberCount})
@@ -96,11 +96,11 @@ export function AssignForm({ courses, teams }: { courses: Course[]; teams: Team[
         <legend className="label">Who</legend>
         <div className="flex flex-wrap gap-4 text-sm">
           <label className="flex items-center gap-2">
-            <input type="radio" checked={wholeTeam} onChange={() => setWholeTeam(true)} className="accent-brand-600" />
+            <input disabled={!hydrated} type="radio" checked={wholeTeam} onChange={() => setWholeTeam(true)} className="accent-brand-600" />
             Everyone in the team
           </label>
           <label className="flex items-center gap-2">
-            <input type="radio" checked={!wholeTeam} onChange={() => setWholeTeam(false)} className="accent-brand-600" />
+            <input disabled={!hydrated} type="radio" checked={!wholeTeam} onChange={() => setWholeTeam(false)} className="accent-brand-600" />
             Choose people
           </label>
         </div>
@@ -114,7 +114,7 @@ export function AssignForm({ courses, teams }: { courses: Course[]; teams: Team[
                   picked.has(m.id) ? "border-brand-400 bg-brand-50" : "border-slate-300"
                 }`}
               >
-                <input
+                <input disabled={!hydrated}
                   type="checkbox"
                   checked={picked.has(m.id)}
                   onChange={(e) =>
