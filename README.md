@@ -94,6 +94,8 @@ All routes are under `/api`. The full interactive reference is at **`/swagger-ui
 
 ## Run it
 
+Requirements: Docker (for the one-command setup), or JDK 17+, Maven 3.9+ and Node.js 22 for dev mode.
+
 **Everything in Docker:**
 
 ```bash
