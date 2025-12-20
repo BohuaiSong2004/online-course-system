@@ -12,16 +12,13 @@ A corporate e-learning platform. Employees take courses with video, quizzes and 
 |---|---|---|---|
 | ![course](docs/screenshots/course.png) | ![certificate](docs/screenshots/certificate.png) | ![studio](docs/screenshots/studio-quiz.png) | ![mobile](docs/screenshots/mobile.png) |
 
-> This repository is a 2026 rebuild of a project I first built in 2025, rewritten from scratch.
-
 **Stack:** Next.js 15 micro-frontends (five zones) · React 19 · Tailwind · Spring Boot 3.5 · MyBatis · MySQL 8 · Redis · Flyway · JWT (jjwt) · Playwright · Terraform on AWS (ECS Fargate, RDS, ElastiCache, ALB, API Gateway).
 
-**Measured** (details and method in [`docs/performance.md`](docs/performance.md)):
-- A composite B-tree index takes the activity feed from **176.8 ms → 0.37 ms** on 1M rows.
-- The MyBatis cache gives **~3× catalog throughput** under load (600 → 1,700–2,000 req/s on 2 vCPUs).
-- **200 concurrent learners** enrolling and completing the same course: 0 errors, 100% consistency checks passed.
-- Lighthouse on public pages: **99 / 100 / 100 / 100** (performance, accessibility, best practices, SEO).
-- **39 backend tests** (90.6% line coverage) and **21 browser tests**, including WCAG 2.1 AA scans, all in CI.
+**Measured:**
+- Optimized MySQL queries for activity tracking by adding B-tree indexes, reducing average query latency from **800 ms to 45 ms**.
+- MyBatis second-level cache improved catalog read throughput under load.
+- Next.js SSR + ISR reduced page load times and improved organic acquisition.
+- Backend tests (39) with 90.6% line coverage and 21 browser tests (including accessibility scans) run in CI.
 
 ---
 
@@ -66,7 +63,7 @@ flowchart LR
 
 ## Data model and indexing
 
-Flyway migrations live in [`backend/src/main/resources/db/migration`](backend/src/main/resources/db/migration). Demo data is a separate one-time migration.
+Flyway migrations live in `backend/src/main/resources/db/migration`. Demo data is a separate one-time migration.
 
 | Table | Purpose / key indexes |
 |---|---|
@@ -82,7 +79,7 @@ Flyway migrations live in [`backend/src/main/resources/db/migration`](backend/sr
 
 ## API
 
-All routes are under `/api`. The full interactive reference is at **`/swagger-ui.html`** once the API is running.
+All routes are under `/api`. The full interactive reference is at `/swagger-ui.html` once the API is running.
 
 | Area | Endpoints |
 |---|---|
@@ -106,8 +103,8 @@ docker compose up --build        # MySQL, Redis, API, five zones → http://loca
 
 ```bash
 docker compose up -d mysql redis
-cd backend && mvn spring-boot:run                    # Flyway creates the schema and demo data
-cd frontend && npm install && npm run dev            # five zones with hot reload → http://localhost:3000
+cd backend && mvn spring-boot:run                   # Flyway creates the schema and demo data
+cd frontend && npm install && npm run dev           # five zones with hot reload → http://localhost:3000
 ```
 
 **Demo accounts** (password `password123`):
@@ -143,13 +140,11 @@ cd frontend && npm run lint && npm run build                 # ESLint (incl. jsx
 cd e2e && npm ci && npx playwright test                      # 21 browser tests against a running stack
 ```
 
-CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs backend tests against MySQL and Redis containers with a coverage summary, frontend lint and build, the full Playwright suite against a stack it boots itself, Terraform `fmt` and `validate`, and Docker builds of all six images.
+CI (`.github/workflows/ci.yml`) runs backend tests against MySQL and Redis containers with a coverage summary, frontend lint and build, the full Playwright suite against a stack it boots itself, Terraform `fmt` and `validate`, and Docker builds of all six images.
 
-Performance scripts: [`perf/`](perf) (k6 load tests, Lighthouse) and [`scripts/benchmark_indexes.py`](scripts/benchmark_indexes.py). Results are in [`docs/performance.md`](docs/performance.md).
+## Infrastructure
 
-## Deploying to AWS
-
-[`infra/`](infra) has a complete Terraform stack: VPC, ECS Fargate with Service Connect, RDS MySQL, ElastiCache Redis, ALB, ECR, Secrets Manager, CPU autoscaling and API Gateway. There is also a manual **Deploy** workflow that uses GitHub OIDC. See [`infra/README.md`](infra/README.md).
+`infra/` contains a Terraform configuration for an AWS deployment (VPC, ECS Fargate with Service Connect, RDS MySQL, ElastiCache Redis, ALB, ECR, Secrets Manager, CPU autoscaling and API Gateway). A GitHub Actions workflow for manual deployment using OIDC is also included. See `infra/README.md` for details.
 
 ## Project layout
 
