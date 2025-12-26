@@ -158,3 +158,5 @@ perf/           k6 scenarios, Lighthouse script
 scripts/        seed generator, index benchmark, screenshot capture
 docs/           performance results, screenshots
 ```
+
+<!-- minor clarity note -->
