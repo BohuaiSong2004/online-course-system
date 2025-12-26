@@ -20,6 +20,9 @@ A corporate e-learning platform. Employees take courses with video, quizzes and 
 - Next.js SSR + ISR reduced page load times and improved organic acquisition.
 - Backend tests (39) with 90.6% line coverage and 21 browser tests (including accessibility scans) run in CI.
 
+**Project Status**
+Core features are complete. Current focus is on improving test coverage and documentation clarity.
+
 ---
 
 ## Features
@@ -158,5 +161,3 @@ perf/           k6 scenarios, Lighthouse script
 scripts/        seed generator, index benchmark, screenshot capture
 docs/           performance results, screenshots
 ```
-
-<!-- minor clarity note -->
