@@ -26,3 +26,5 @@ Public pages are statically generated and revalidated (ISR). Lighthouse measurem
 | Browser end-to-end (Playwright) | 21 | Includes axe-core WCAG 2.1 AA scans (no serious or critical issues) and a phone viewport |
 
 All of them run in GitHub Actions on every push.
+
+<!-- small wording note -->
